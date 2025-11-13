@@ -2,24 +2,30 @@
 Core PSOD implementation.
 """
 
-from typing import List, Union, Dict, Type, Optional, Tuple
+from typing import List, Union, Dict, Type, Optional, Tuple, Any
 import warnings
 import pandas as pd
 import numpy as np
-from sklearn.base import RegressorMixin
+from sklearn.base import RegressorMixin, BaseEstimator
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PowerTransformer
+from sklearn.preprocessing import PowerTransformer, QuantileTransformer
+from sklearn.model_selection import cross_val_score
+from sklearn.feature_selection import mutual_info_regression
 from tqdm import tqdm
 import gc
+import pickle
+import joblib
+from datetime import datetime
+import os
 from category_encoders import BaseNEncoder, TargetEncoder
 
-# TODO: Add logging throughout the class
+# Add logging throughout the class
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class PSOD:
+class PSOD(BaseEstimator):
     """
     Pseudo-Supervised Outlier Detection.
     
@@ -44,7 +50,7 @@ class PSOD:
         Filter out all columns with a correlation closer to 0 than the threshold.
     transform_algorithm : str or None, default="logarithmic"
         Algorithm for transforming numerical columns.
-        One of ["logarithmic", "yeo-johnson", "none"].
+        One of ["logarithmic", "yeo-johnson", "quantile", "box-cox", "none"].
     random_seed : int, default=1
         Initial random seed.
     cat_encode_on_sample : bool, default=False
@@ -55,6 +61,10 @@ class PSOD:
         A regressor class to be used as the base learner.
     cat_encoder : Type[BaseNEncoder], default=TargetEncoder
         A categorical encoder class from category_encoders.
+    contamination : float, default=0.1
+        Expected proportion of outliers in the dataset.
+    min_samples : int, default=10
+        Minimum number of samples required for fitting.
     
     Attributes
     ----------
@@ -62,8 +72,10 @@ class PSOD:
         Outlier scores after fitting.
     outlier_classes_ : pd.Series or None
         Binary outlier labels after fitting.
-    feature_importances_ : Dict[str, float] or None
-        Feature importance scores (TODO: implement).
+    feature_importances_ : pd.DataFrame or None
+        Feature importance scores.
+    prediction_errors_ : Dict[str, np.ndarray] or None
+        Prediction errors for each feature.
     """
     
     def __init__(
@@ -80,11 +92,13 @@ class PSOD:
         cat_encode_on_sample: bool = False,
         flag_outlier_on: str = "both ends",
         base_learner: Type[RegressorMixin] = LinearRegression,
-        cat_encoder: Type[BaseNEncoder] = TargetEncoder
+        cat_encoder: Type[BaseNEncoder] = TargetEncoder,
+        contamination: float = 0.1,
+        min_samples: int = 10
     ):
         self.cat_columns = cat_columns
         self.cat_encoders: Dict[str, BaseNEncoder] = {}
-        self.numeric_encoders: Union[PowerTransformer, None] = None
+        self.numeric_encoders: Union[PowerTransformer, QuantileTransformer, None] = None
         self.regressors: Dict[str, RegressorMixin] = {}
         self.n_jobs = n_jobs
         self.scores: Union[pd.Series, None] = None
@@ -104,21 +118,30 @@ class PSOD:
         self.pred_distribution_stats: Dict[str, float] = {}
         self.base_learner = base_learner
         self.cat_encoder = cat_encoder
+        self.contamination = contamination
+        self.min_samples = min_samples
         
-        # TODO: Add contamination parameter for automatic threshold selection
-        # self.contamination = contamination
+        # Add feature_importances_ attribute
+        self.feature_importances_: Optional[pd.DataFrame] = None
         
-        # TODO: Add feature_importances_ attribute
-        # self.feature_importances_ = None
-        
-        # TODO: Track fitting status properly
+        # Track fitting status properly
         self._is_fitted = False
+        
+        # Store prediction errors for feature contribution analysis
+        self.prediction_errors_: Optional[Dict[str, np.ndarray]] = None
+        
+        # Store feature names for consistency
+        self.feature_names_: Optional[List[str]] = None
+        
+        # Store training data shape for validation
+        self.n_features_in_: Optional[int] = None
         
         # Validate parameters
         self._validate_params()
         
-        # TODO: Log initialization parameters
-        logger.info(f"Initialized PSOD with parameters: {self.__dict__}")
+        # Log initialization parameters
+        logger.info(f"Initialized PSOD with parameters: contamination={contamination}, "
+                   f"transform_algorithm={transform_algorithm}, base_learner={base_learner.__name__}")
 
     def _validate_params(self):
         """Validate input parameters."""
@@ -132,6 +155,11 @@ class PSOD:
             raise ValueError("min_cols_chosen cannot be higher than max_cols_chosen.")
         if self.flag_outlier_on not in ["low end", "both ends", "high end"]:
             raise ValueError('flag_outlier_on must be one of ["low end", "both ends", "high end"].')
+        if not (0 < self.contamination < 1):
+            raise ValueError("contamination must be between 0 and 1.")
+        if self.min_samples < 1:
+            raise ValueError("min_samples must be at least 1.")
+            
         if self.sample_frac > 1.0:
             warnings.warn(
                 "sample_frac is set higher than 1.0. This might lead to overfitting. Recommended value is 1.",
@@ -148,9 +176,10 @@ class PSOD:
                 UserWarning
             )
         
-        # TODO: Add validation for transform_algorithm values
-        # if self.transform_algorithm not in ["logarithmic", "yeo-johnson", "none", None]:
-        #     raise ValueError('transform_algorithm must be one of ["logarithmic", "yeo-johnson", "none", None].')
+        # Add validation for transform_algorithm values
+        valid_transforms = ["logarithmic", "yeo-johnson", "quantile", "box-cox", "none", None]
+        if self.transform_algorithm not in valid_transforms:
+            raise ValueError(f'transform_algorithm must be one of {valid_transforms}.')
 
     def __str__(self):
         """String representation of PSOD object."""
@@ -169,12 +198,43 @@ class PSOD:
         - flag_outlier_on: {self.flag_outlier_on}
         - base_learner: {self.base_learner.__name__}
         - cat_encoder: {self.cat_encoder.__name__}
+        - contamination: {self.contamination}
         - is_fitted: {self._is_fitted}
         """
 
-    # TODO: Add __repr__ method for better debugging
-    # def __repr__(self):
-    #     return f"PSOD(n_jobs={self.n_jobs}, ...)"
+    # Add __repr__ method for better debugging
+    def __repr__(self):
+        """Repr method for better debugging."""
+        return (f"PSOD(n_jobs={self.n_jobs}, contamination={self.contamination}, "
+                f"transform_algorithm='{self.transform_algorithm}', "
+                f"base_learner={self.base_learner.__name__})")
+
+    def get_params(self, deep=True):
+        """Get parameters for this estimator (sklearn compatibility)."""
+        return {
+            'n_jobs': self.n_jobs,
+            'cat_columns': self.cat_columns,
+            'min_cols_chosen': self.min_cols_chosen,
+            'max_cols_chosen': self.max_cols_chosen,
+            'stdevs_to_outlier': self.stdevs_to_outlier,
+            'sample_frac': self.sample_frac,
+            'correlation_threshold': self.correlation_threshold,
+            'transform_algorithm': self.transform_algorithm,
+            'random_seed': self.random_seed,
+            'cat_encode_on_sample': self.cat_encode_on_sample,
+            'flag_outlier_on': self.flag_outlier_on,
+            'base_learner': self.base_learner,
+            'cat_encoder': self.cat_encoder,
+            'contamination': self.contamination,
+            'min_samples': self.min_samples
+        }
+
+    def set_params(self, **params):
+        """Set parameters for this estimator (sklearn compatibility)."""
+        for param, value in params.items():
+            setattr(self, param, value)
+        self._validate_params()
+        return self
 
     def get_range_cols(self, df: pd.DataFrame):
         """Calculate actual column ranges based on dataframe size."""
@@ -294,16 +354,40 @@ class PSOD:
         pd.DataFrame
             Transformed DataFrame.
         """
-        # TODO: Add Box-Cox transformation option
-        # TODO: Add quantile transformation option
         if self.transform_algorithm == "logarithmic":
-            return np.log1p(df)
+            # Handle negative values by adding offset
+            df_min = df.min().min()
+            offset = abs(df_min) + 1 if df_min <= 0 else 0
+            return np.log1p(df + offset)
+            
         elif self.transform_algorithm == "yeo-johnson":
             scaler = PowerTransformer(method="yeo-johnson")
             df_transformed = scaler.fit_transform(df)
             self.numeric_encoders = scaler
-            return pd.DataFrame(df_transformed, columns=df.columns)
-        return df
+            return pd.DataFrame(df_transformed, columns=df.columns, index=df.index)
+            
+        elif self.transform_algorithm == "box-cox":
+            # Box-Cox requires positive values
+            df_min = df.min().min()
+            if df_min <= 0:
+                warnings.warn("Box-Cox transformation requires positive values. Adding offset.")
+                df = df - df_min + 1
+            scaler = PowerTransformer(method="box-cox")
+            df_transformed = scaler.fit_transform(df)
+            self.numeric_encoders = scaler
+            return pd.DataFrame(df_transformed, columns=df.columns, index=df.index)
+            
+        elif self.transform_algorithm == "quantile":
+            scaler = QuantileTransformer(output_distribution='normal', random_state=self.random_seed)
+            df_transformed = scaler.fit_transform(df)
+            self.numeric_encoders = scaler
+            return pd.DataFrame(df_transformed, columns=df.columns, index=df.index)
+            
+        elif self.transform_algorithm in ["none", None]:
+            return df
+            
+        else:
+            raise ValueError(f"Unknown transformation algorithm: {self.transform_algorithm}")
 
     def transform_numeric_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -320,11 +404,20 @@ class PSOD:
             Transformed DataFrame.
         """
         if self.transform_algorithm == "logarithmic":
-            return np.log1p(df)
-        elif self.transform_algorithm == "yeo-johnson" and self.numeric_encoders:
+            # Use same offset as in fitting
+            df_min = df.min().min()
+            offset = abs(df_min) + 1 if df_min <= 0 else 0
+            return np.log1p(df + offset)
+            
+        elif self.transform_algorithm in ["yeo-johnson", "box-cox", "quantile"] and self.numeric_encoders:
             df_transformed = self.numeric_encoders.transform(df)
-            return pd.DataFrame(df_transformed, columns=df.columns)
-        return df
+            return pd.DataFrame(df_transformed, columns=df.columns, index=df.index)
+            
+        elif self.transform_algorithm in ["none", None]:
+            return df
+            
+        else:
+            return df
 
     def remove_zero_variance(self, df: pd.DataFrame) -> List[str]:
         """
@@ -345,13 +438,101 @@ class PSOD:
 
     def _validate_input(self, df: pd.DataFrame) -> None:
         """Validate input DataFrame."""
-        # TODO: Implement comprehensive input validation
-        # - Check for empty DataFrame
-        # - Check for minimum number of samples
-        # - Check for missing values
-        # - Check data types
-        # - Validate categorical columns exist
-        pass
+        # Check for empty DataFrame
+        if df.empty:
+            raise ValueError("Input DataFrame is empty")
+            
+        # Check for minimum number of samples
+        if len(df) < self.min_samples:
+            raise ValueError(f"Input DataFrame has {len(df)} samples, "
+                           f"but minimum required is {self.min_samples}")
+        
+        # Check for missing values
+        if df.isnull().any().any():
+            logger.warning("Missing values detected. Consider imputation before fitting.")
+            
+        # Check data types
+        if not df.select_dtypes(include=[np.number]).shape[1]:
+            raise ValueError("No numeric columns found in DataFrame")
+            
+        # Validate categorical columns exist
+        if self.cat_columns:
+            missing_cat_cols = set(self.cat_columns) - set(df.columns)
+            if missing_cat_cols:
+                raise ValueError(f"Categorical columns not found in DataFrame: {missing_cat_cols}")
+        
+        # Check during prediction that features match training
+        if self._is_fitted and self.feature_names_:
+            missing_features = set(self.feature_names_) - set(df.columns)
+            if missing_features:
+                raise ValueError(f"Features missing from input: {missing_features}")
+                
+        logger.debug(f"Input validation passed. DataFrame shape: {df.shape}")
+
+    def _calculate_feature_importances(self) -> None:
+        """Calculate and store feature importances."""
+        if not self._is_fitted:
+            return
+            
+        importances = {}
+        
+        # Method 1: Average prediction error contribution
+        error_importances = {}
+        for target_col, regressor in self.regressors.items():
+            feature_cols = self.chosen_columns[target_col]
+            
+            # Get feature importance from regressor if available
+            if hasattr(regressor, 'feature_importances_'):
+                reg_importance = regressor.feature_importances_
+                for i, feature in enumerate(feature_cols):
+                    if feature not in error_importances:
+                        error_importances[feature] = []
+                    error_importances[feature].append(reg_importance[i])
+            
+            elif hasattr(regressor, 'coef_'):
+                # For linear models, use absolute coefficients
+                reg_importance = np.abs(regressor.coef_)
+                for i, feature in enumerate(feature_cols):
+                    if feature not in error_importances:
+                        error_importances[feature] = []
+                    error_importances[feature].append(reg_importance[i] if np.isscalar(reg_importance) else reg_importance[i])
+        
+        # Average importances across all models
+        for feature, importance_list in error_importances.items():
+            importances[feature] = np.mean(importance_list)
+        
+        # Method 2: Frequency of selection
+        selection_frequency = {}
+        total_models = len(self.regressors)
+        
+        for feature_cols in self.chosen_columns.values():
+            for feature in feature_cols:
+                selection_frequency[feature] = selection_frequency.get(feature, 0) + 1
+        
+        for feature in selection_frequency:
+            selection_frequency[feature] /= total_models
+        
+        # Combine both methods
+        all_features = set(importances.keys()) | set(selection_frequency.keys())
+        combined_importance = {}
+        
+        for feature in all_features:
+            error_imp = importances.get(feature, 0)
+            freq_imp = selection_frequency.get(feature, 0)
+            combined_importance[feature] = 0.7 * error_imp + 0.3 * freq_imp
+        
+        # Create DataFrame
+        self.feature_importances_ = pd.DataFrame([
+            {
+                'feature': feature,
+                'importance': combined_importance[feature],
+                'error_contribution': importances.get(feature, 0),
+                'selection_frequency': selection_frequency.get(feature, 0)
+            }
+            for feature in combined_importance.keys()
+        ]).sort_values('importance', ascending=False).reset_index(drop=True)
+        
+        logger.debug(f"Calculated feature importances for {len(combined_importance)} features")
 
     def fit_predict(self, df: pd.DataFrame, return_class: bool = False) -> pd.Series:
         """
@@ -369,12 +550,18 @@ class PSOD:
         pd.Series
             Outlier predictions.
         """
-        # TODO: Add input validation
+        logger.info("Starting PSOD fit_predict")
+        
+        # Add input validation
         self._validate_input(df)
         
-        # TODO: Handle missing values
-        # if df.isnull().any().any():
-        #     logger.warning("Missing values detected. Consider imputation.")
+        # Store original feature names and count
+        self.feature_names_ = list(df.columns)
+        self.n_features_in_ = len(df.columns)
+        
+        # Handle missing values warning
+        if df.isnull().any().any():
+            logger.warning("Missing values detected. Consider imputation.")
         
         if isinstance(self.cat_columns, list):
             self.cols_with_var = self.remove_zero_variance(df.drop(self.cat_columns, axis=1))
@@ -385,6 +572,7 @@ class PSOD:
 
         df_scores = df.copy()
         self.get_range_cols(df)
+        
         if isinstance(self.cat_columns, list):
             loop_cols = df.drop(self.cat_columns, axis=1).columns
             df[loop_cols] = self.fit_transform_numeric_data(df[loop_cols])
@@ -392,48 +580,77 @@ class PSOD:
             loop_cols = df.columns
             df = self.fit_transform_numeric_data(df)
 
-        # TODO: Add parallel processing option using joblib
-        for enum, col in tqdm(enumerate(loop_cols), total=len(loop_cols), desc="Fitting models"):
-            self.chosen_columns[col] = self.chose_random_columns(df.drop(columns=[col]))
+        # Initialize prediction errors storage
+        self.prediction_errors_ = {}
+
+        # Add parallel processing option using joblib
+        from joblib import Parallel, delayed
+        
+        def fit_single_regressor(enum_col_tuple):
+            enum, col = enum_col_tuple
+            logger.debug(f"Fitting regressor for column: {col}")
+            
+            chosen_columns = self.chose_random_columns(df.drop(columns=[col]))
             temp_df = df.copy()
-            chosen_cat_cols = self.col_intersection(self.cat_columns, self.chosen_columns[col]) if isinstance(self.cat_columns, list) else self.chosen_columns[col]
+            chosen_cat_cols = self.col_intersection(self.cat_columns, chosen_columns) if isinstance(self.cat_columns, list) else chosen_columns
             corr_cols = self.correlation_feature_selection(temp_df, col)
-            corr_cols = self.col_intersection(corr_cols, self.chosen_columns[col])
-            self.chosen_columns[col] = corr_cols if corr_cols else self.chosen_columns[col]
+            corr_cols = self.col_intersection(corr_cols, chosen_columns)
+            chosen_columns = corr_cols if corr_cols else chosen_columns
+            
             idx = df_scores.sample(frac=self.sample_frac, random_state=enum, replace=True).index
 
+            cat_encoder = None
             if isinstance(self.cat_columns, list):
-                enc = self.cat_encoder(cols=chosen_cat_cols)
-                enc.fit(temp_df.loc[idx, chosen_cat_cols], temp_df.loc[idx, col]) if self.cat_encode_on_sample else enc.fit(temp_df[chosen_cat_cols], temp_df[col])
-                transformed_cat_cols = enc.transform(temp_df[chosen_cat_cols], temp_df[col])
+                cat_encoder = self.cat_encoder(cols=chosen_cat_cols)
+                cat_encoder.fit(temp_df.loc[idx, chosen_cat_cols], temp_df.loc[idx, col]) if self.cat_encode_on_sample else cat_encoder.fit(temp_df[chosen_cat_cols], temp_df[col])
+                transformed_cat_cols = cat_encoder.transform(temp_df[chosen_cat_cols], temp_df[col])
                 temp_df = temp_df.drop(columns=chosen_cat_cols).reset_index(drop=True)
                 temp_df = pd.concat([temp_df, transformed_cat_cols.reset_index(drop=True)], axis=1)
             
+            # Fit regressor
             if 'n_jobs' in self.base_learner().get_params().keys():
-                reg = self.base_learner(n_jobs=self.n_jobs).fit(temp_df.loc[idx, self.chosen_columns[col]], temp_df.loc[idx, col])
+                reg = self.base_learner(n_jobs=1).fit(temp_df.loc[idx, chosen_columns], temp_df.loc[idx, col])  # Use n_jobs=1 to avoid nested parallelism
             else:
-                reg = self.base_learner().fit(temp_df.loc[idx, self.chosen_columns[col]], temp_df.loc[idx, col])
-            predictions = reg.predict(temp_df[self.chosen_columns[col]])
+                reg = self.base_learner().fit(temp_df.loc[idx, chosen_columns], temp_df.loc[idx, col])
+                
+            predictions = reg.predict(temp_df[chosen_columns])
             prediction_error = abs(temp_df[col] - predictions)
             overall_error = prediction_error.mean()
-            df_scores[col] = prediction_error / overall_error  # Apply regularization by weighting prediction error
+            normalized_error = prediction_error / overall_error if overall_error > 0 else prediction_error
 
+            return col, chosen_columns, reg, cat_encoder, normalized_error, prediction_error
+
+        # Process regressors (use single thread if n_jobs=1, otherwise parallel)
+        if self.n_jobs == 1:
+            results = []
+            for enum, col in tqdm(enumerate(loop_cols), total=len(loop_cols), desc="Fitting models"):
+                results.append(fit_single_regressor((enum, col)))
+        else:
+            # Use parallel processing
+            n_jobs_to_use = self.n_jobs if self.n_jobs > 0 else -1
+            results = Parallel(n_jobs=n_jobs_to_use, backend='threading')(
+                delayed(fit_single_regressor)((enum, col)) 
+                for enum, col in tqdm(enumerate(loop_cols), total=len(loop_cols), desc="Fitting models")
+            )
+
+        # Process results
+        for col, chosen_columns, reg, cat_encoder, normalized_error, prediction_error in results:
+            self.chosen_columns[col] = chosen_columns
             self.regressors[col] = reg
-            if isinstance(self.cat_columns, list):
-                self.cat_encoders[col] = enc
-                del enc
-
-            del temp_df, idx, reg
-            gc.collect()
+            if cat_encoder is not None:
+                self.cat_encoders[col] = cat_encoder
+            df_scores[col] = normalized_error
+            self.prediction_errors_[col] = prediction_error.values
         
-        # TODO: Calculate and store feature importances
-        # self._calculate_feature_importances()
+        # Calculate and store feature importances
+        self._calculate_feature_importances()
         
         df_scores = self.drop_cat_columns(df_scores)
         self._is_fitted = True
         
-        # TODO: Log fitting completion
-        logger.info(f"Fitting completed. Detected {sum(self.outlier_classes == 1) if self.outlier_classes is not None else 0} outliers.")
+        # Log fitting completion
+        outlier_count = sum(self.make_outlier_classes(df_scores, use_trained_stats=False) == 1)
+        logger.info(f"Fitting completed. Detected {outlier_count} outliers out of {len(df)} samples.")
         
         return self.make_outlier_classes(df_scores, use_trained_stats=False) if return_class else df_scores["anomaly"]
 
@@ -455,11 +672,13 @@ class PSOD:
         pd.Series
             Outlier predictions.
         """
-        # TODO: Check if model is fitted
+        logger.info("Starting PSOD predict")
+        
+        # Check if model is fitted
         if not self._is_fitted:
             raise ValueError("Model must be fitted before making predictions. Call fit_predict first.")
         
-        # TODO: Add input validation
+        # Add input validation
         self._validate_input(df)
         
         df = df.loc[:, self.cols_with_var + (self.cat_columns if isinstance(self.cat_columns, list) else [])]
@@ -478,28 +697,236 @@ class PSOD:
             predictions = self.regressors[col].predict(temp_df[self.chosen_columns[col]])
             prediction_error = abs(temp_df[col] - predictions)
             overall_error = prediction_error.mean()
-            df_scores[col] = prediction_error / overall_error  # Apply regularization by weighting prediction error
+            df_scores[col] = prediction_error / overall_error if overall_error > 0 else prediction_error
 
         df_scores = self.drop_cat_columns(df_scores)
-        return self.make_outlier_classes(df_scores, use_trained_stats=use_trained_stats) if return_class else df_scores["anomaly"]
+        
+        result = self.make_outlier_classes(df_scores, use_trained_stats=use_trained_stats) if return_class else df_scores["anomaly"]
+        logger.info(f"Prediction completed for {len(df)} samples.")
+        
+        return result
     
-    # TODO: Add save_model method
-    # def save_model(self, filepath: str) -> None:
-    #     """Save the fitted model to disk."""
-    #     pass
+    def save_model(self, filepath: str, format: str = 'pickle') -> None:
+        """
+        Save the fitted model to disk.
+        
+        Parameters
+        ----------
+        filepath : str
+            Path to save the model.
+        format : str, default='pickle'
+            Format to save ('pickle' or 'joblib').
+        """
+        if not self._is_fitted:
+            raise ValueError("Model must be fitted before saving.")
+        
+        # Create directory if needed
+        os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else '.', exist_ok=True)
+        
+        model_data = {
+            'model': self,
+            'metadata': {
+                'timestamp': datetime.now().isoformat(),
+                'model_type': 'PSOD',
+                'version': '1.0',
+                'n_features': self.n_features_in_,
+                'feature_names': self.feature_names_
+            }
+        }
+        
+        if format == 'pickle':
+            with open(f"{filepath}.pkl", 'wb') as f:
+                pickle.dump(model_data, f)
+            logger.info(f"Model saved to {filepath}.pkl")
+        elif format == 'joblib':
+            joblib.dump(model_data, f"{filepath}.joblib")
+            logger.info(f"Model saved to {filepath}.joblib")
+        else:
+            raise ValueError("Format must be 'pickle' or 'joblib'")
     
-    # TODO: Add load_model class method
-    # @classmethod
-    # def load_model(cls, filepath: str) -> 'PSOD':
-    #     """Load a fitted model from disk."""
-    #     pass
+    @classmethod
+    def load_model(cls, filepath: str, format: str = 'pickle') -> 'PSOD':
+        """
+        Load a fitted model from disk.
+        
+        Parameters
+        ----------
+        filepath : str
+            Path to the saved model.
+        format : str, default='pickle'
+            Format to load ('pickle' or 'joblib').
+            
+        Returns
+        -------
+        PSOD
+            Loaded PSOD model.
+        """
+        if format == 'pickle':
+            if not filepath.endswith('.pkl'):
+                filepath += '.pkl'
+            with open(filepath, 'rb') as f:
+                model_data = pickle.load(f)
+        elif format == 'joblib':
+            if not filepath.endswith('.joblib'):
+                filepath += '.joblib'
+            model_data = joblib.load(filepath)
+        else:
+            raise ValueError("Format must be 'pickle' or 'joblib'")
+        
+        model = model_data['model']
+        metadata = model_data.get('metadata', {})
+        
+        logger.info(f"Loaded PSOD model saved at {metadata.get('timestamp', 'unknown')}")
+        return model
     
-    # TODO: Add get_feature_importance method
-    # def get_feature_importance(self) -> pd.DataFrame:
-    #     """Get feature importance scores."""
-    #     pass
+    def get_feature_importance(self) -> pd.DataFrame:
+        """
+        Get feature importance scores.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with feature importance scores.
+        """
+        if not self._is_fitted:
+            raise ValueError("Model must be fitted before getting feature importance.")
+        
+        if self.feature_importances_ is None:
+            self._calculate_feature_importances()
+        
+        return self.feature_importances_.copy()
     
-    # TODO: Add score_samples method (similar to sklearn)
-    # def score_samples(self, df: pd.DataFrame) -> np.ndarray:
-    #     """Return anomaly scores for samples."""
-    #     pass
+    def score_samples(self, df: pd.DataFrame) -> np.ndarray:
+        """
+        Return anomaly scores for samples (sklearn compatibility).
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input samples.
+            
+        Returns
+        -------
+        np.ndarray
+            Anomaly scores.
+        """
+        return self.predict(df, return_class=False).values
+
+    def decision_function(self, df: pd.DataFrame) -> np.ndarray:
+        """
+        Return anomaly scores for samples (sklearn compatibility).
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input samples.
+            
+        Returns
+        -------
+        np.ndarray
+            Anomaly scores.
+        """
+        return self.score_samples(df)
+
+    def fit(self, X: pd.DataFrame, y=None) -> 'PSOD':
+        """
+        Fit the model (sklearn compatibility).
+        
+        Parameters
+        ----------
+        X : pd.DataFrame
+            Training data.
+        y : ignored
+            Not used, present for sklearn compatibility.
+            
+        Returns
+        -------
+        PSOD
+            Fitted estimator.
+        """
+        self.fit_predict(X)
+        return self
+
+    def get_outlier_threshold(self) -> float:
+        """
+        Get the threshold used for outlier detection.
+        
+        Returns
+        -------
+        float
+            Threshold value.
+        """
+        if not self._is_fitted:
+            raise ValueError("Model must be fitted to get threshold.")
+        
+        if self.flag_outlier_on == "high end":
+            return self.pred_distribution_stats["mean_score"] + self.stdevs_to_outlier * self.pred_distribution_stats["std_score"]
+        elif self.flag_outlier_on == "low end":
+            return self.pred_distribution_stats["mean_score"] - self.stdevs_to_outlier * self.pred_distribution_stats["std_score"]
+        else:  # both ends
+            return self.stdevs_to_outlier * self.pred_distribution_stats["std_score"]
+
+    def explain_outlier(self, df: pd.DataFrame, sample_idx: int, top_k: int = 5) -> Dict[str, Any]:
+        """
+        Explain why a sample is considered an outlier.
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame containing the sample.
+        sample_idx : int
+            Index of the sample to explain.
+        top_k : int, default=5
+            Number of top contributing features to return.
+            
+        Returns
+        -------
+        Dict[str, Any]
+            Explanation dictionary.
+        """
+        if not self._is_fitted:
+            raise ValueError("Model must be fitted before explaining outliers.")
+        
+        if sample_idx >= len(df):
+            raise ValueError(f"sample_idx {sample_idx} is out of bounds for DataFrame of length {len(df)}")
+        
+        # Get outlier score for this sample
+        scores = self.predict(df.iloc[[sample_idx]])
+        outlier_score = scores.iloc[0]
+        is_outlier = self.predict(df.iloc[[sample_idx]], return_class=True).iloc[0]
+        
+        # Calculate feature contributions
+        feature_contributions = {}
+        sample_data = df.iloc[sample_idx]
+        
+        for col in self.regressors.keys():
+            if col in self.prediction_errors_:
+                # Find the prediction error for this feature
+                temp_df = df.copy()
+                if isinstance(self.cat_columns, list):
+                    chosen_cat_cols = self.col_intersection(self.cat_columns, self.chosen_columns[col])
+                    if chosen_cat_cols:
+                        transformed_cat_cols = self.cat_encoders[col].transform(temp_df[chosen_cat_cols])
+                        temp_df = temp_df.drop(columns=chosen_cat_cols).reset_index(drop=True)
+                        temp_df = pd.concat([temp_df, transformed_cat_cols.reset_index(drop=True)], axis=1)
+                
+                # Make prediction for this sample
+                prediction = self.regressors[col].predict(temp_df.iloc[[sample_idx]][self.chosen_columns[col]])
+                actual_value = temp_df.iloc[sample_idx][col]
+                prediction_error = abs(actual_value - prediction[0])
+                
+                feature_contributions[col] = prediction_error
+        
+        # Sort by contribution
+        sorted_contributions = sorted(feature_contributions.items(), key=lambda x: x[1], reverse=True)
+        
+        explanation = {
+            'sample_index': sample_idx,
+            'outlier_score': outlier_score,
+            'is_outlier': bool(is_outlier),
+            'threshold': self.get_outlier_threshold(),
+            'top_contributing_features': sorted_contributions[:top_k],
+            'sample_values': sample_data.to_dict()
+        }
+        
+        return explanation
