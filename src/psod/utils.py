@@ -600,8 +600,8 @@ def evaluate_outlier_detection(
             elif metric.lower() == "recall":
                 results["recall"] = recall_score(y_true_binary, y_pred_binary, zero_division=0)
 
-            elif metric.lower() == "f1":
-                results["f1"] = f1_score(y_true_binary, y_pred_binary, zero_division=0)
+            elif metric.lower() in ["f1", "f1_score"]:
+                results["f1_score"] = f1_score(y_true_binary, y_pred_binary, zero_division=0)
 
             elif metric.lower() in ["auc_roc", "roc_auc"]:
                 if not is_binary_pred:
@@ -1293,6 +1293,11 @@ def detect_feature_drift(
     return drift_results
 
 
+# Aliases for backward compatibility and convenience
+calibrate_scores = calibrate_outlier_scores
+validate_outlier_data = validate_dataframe
+
+
 # Export all functions for easy import
 __all__ = [
     # Model persistence
@@ -1300,6 +1305,7 @@ __all__ = [
     "load_model",
     # Data validation and preprocessing
     "validate_dataframe",
+    "validate_outlier_data",  # Alias
     "handle_missing_values",
     "standardize_features",
     "remove_outliers",
@@ -1307,6 +1313,7 @@ __all__ = [
     "detect_feature_drift",
     # Outlier score processing
     "calibrate_outlier_scores",
+    "calibrate_scores",  # Alias
     "combine_outlier_scores",
     "normalize_scores",
     "select_threshold",

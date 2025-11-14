@@ -204,18 +204,26 @@ def plot_feature_contributions(model, sample_idx: int, top_k: int = 10) -> plt.F
         feature_names = model.feature_names_
 
     # Calculate feature contributions (this assumes model has prediction errors stored)
-    if hasattr(model, "prediction_errors_"):
-        contributions = np.abs(model.prediction_errors_[sample_idx])
-    else:
+    if hasattr(model, "prediction_errors_") and model.prediction_errors_:
+        # prediction_errors_ is a dict with target columns as keys
+        # Extract errors for the specific sample across all targets
+        contributions = []
+        for target_col in sorted(model.prediction_errors_.keys()):
+            errors = model.prediction_errors_[target_col]
+            if isinstance(errors, np.ndarray) and len(errors) > sample_idx:
+                contributions.append(np.abs(errors[sample_idx]))
+            else:
+                contributions.append(0)
+        contributions = np.array(contributions) if contributions else np.random.rand(len(feature_names))
+    elif hasattr(model, "feature_importances_") and model.feature_importances_ is not None:
         # Fallback: use feature importance if available
-        if hasattr(model, "feature_importances_"):
-            contributions = model.feature_importances_
-        else:
-            # Generate mock contributions for demonstration
-            warnings.warn(
-                "Model doesn't have prediction errors or feature importances. Using random contributions."
-            )
-            contributions = np.random.rand(len(feature_names))
+        contributions = model.feature_importances_["importance"].values
+    else:
+        # Generate mock contributions for demonstration
+        warnings.warn(
+            "Model doesn't have prediction errors or feature importances. Using random contributions."
+        )
+        contributions = np.random.rand(len(feature_names))
 
     # Get top-k features
     top_indices = np.argsort(contributions)[-top_k:][::-1]
@@ -1049,7 +1057,13 @@ def plot_feature_distributions(
     n_rows = (n_features + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
-    axes = axes.flatten() if n_rows > 1 else [axes] if n_rows == 1 else axes
+    # Ensure axes is always a flat array
+    if n_rows == 1 and n_cols == 1:
+        axes = [axes]
+    elif n_rows == 1 or n_cols == 1:
+        axes = axes.flatten()
+    else:
+        axes = axes.flatten()
 
     outlier_mask = outlier_labels == 1
     normal_mask = outlier_labels == 0

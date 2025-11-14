@@ -115,6 +115,9 @@ class PSOD(BaseEstimator):
         self.outlier_classes: Union[pd.Series, None] = None
         self.min_cols_chosen = min_cols_chosen
         self.max_cols_chosen = max_cols_chosen
+        # Store integer versions separately (will be set during fit)
+        self._min_cols_chosen_int: Optional[int] = None
+        self._max_cols_chosen_int: Optional[int] = None
         self.chosen_columns: Dict[str, List[str]] = {}
         self.cols_with_var: List[str] = []
         self.stdevs_to_outlier = stdevs_to_outlier
@@ -300,8 +303,9 @@ class PSOD(BaseEstimator):
     def get_range_cols(self, df: pd.DataFrame):
         """Calculate actual column ranges based on dataframe size."""
         len_cols = len(df.columns) - 1  # Exclude target column
-        self.min_cols_chosen = max(int(len_cols * self.min_cols_chosen), 1)
-        self.max_cols_chosen = min(int(len_cols * self.max_cols_chosen), len_cols)
+        # Store converted integer values separately, preserving original fractions
+        self._min_cols_chosen_int = max(int(len_cols * self.min_cols_chosen), 1)
+        self._max_cols_chosen_int = min(int(len_cols * self.max_cols_chosen), len_cols)
 
     def chose_random_columns(self, df: pd.DataFrame) -> List[str]:
         """
@@ -327,9 +331,9 @@ class PSOD(BaseEstimator):
 
         nb_cols = (
             1
-            if self.min_cols_chosen == self.max_cols_chosen == 1
+            if self._min_cols_chosen_int == self._max_cols_chosen_int == 1
             else self.random_generator.choice(
-                np.arange(self.min_cols_chosen, self.max_cols_chosen) + 1,
+                np.arange(self._min_cols_chosen_int, self._max_cols_chosen_int) + 1,
                 1,
                 replace=False,
             )[0]
@@ -854,9 +858,9 @@ class PSOD(BaseEstimator):
             else:
                 nb_cols = (
                     1
-                    if self.min_cols_chosen == self.max_cols_chosen == 1
+                    if self._min_cols_chosen_int == self._max_cols_chosen_int == 1
                     else local_rng.choice(
-                        np.arange(self.min_cols_chosen, self.max_cols_chosen) + 1,
+                        np.arange(self._min_cols_chosen_int, self._max_cols_chosen_int) + 1,
                         1,
                         replace=False,
                     )[0]
