@@ -119,14 +119,24 @@ def plot_outlier_scores(
     # 3. Q-Q plot against normal distribution
     from scipy import stats
 
-    stats.probplot(scores_array, dist="norm", plot=ax3)
-    ax3.set_title("Q-Q Plot vs Normal Distribution")
-    ax3.grid(True, alpha=0.3)
-    ax3.get_lines()[0].set_markerfacecolor("skyblue")
-    ax3.get_lines()[0].set_markeredgecolor("black")
-    ax3.get_lines()[0].set_markersize(4)
-    ax3.get_lines()[1].set_color("red")
-    ax3.get_lines()[1].set_linewidth(2)
+    # Skip Q-Q plot for very small samples to avoid warnings
+    if len(scores_array) >= 3:
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=Warning)
+            stats.probplot(scores_array, dist="norm", plot=ax3)
+        ax3.set_title("Q-Q Plot vs Normal Distribution")
+        ax3.grid(True, alpha=0.3)
+        if len(ax3.get_lines()) >= 2:
+            ax3.get_lines()[0].set_markerfacecolor("skyblue")
+            ax3.get_lines()[0].set_markeredgecolor("black")
+            ax3.get_lines()[0].set_markersize(4)
+            ax3.get_lines()[1].set_color("red")
+            ax3.get_lines()[1].set_linewidth(2)
+    else:
+        ax3.text(0.5, 0.5, f'Insufficient data for Q-Q plot\n(n={len(scores_array)} < 3)',
+                ha='center', va='center', transform=ax3.transAxes)
+        ax3.set_title("Q-Q Plot vs Normal Distribution")
+        ax3.grid(True, alpha=0.3)
 
     # 4. Cumulative distribution
     sorted_scores = np.sort(scores_array)
@@ -340,27 +350,52 @@ def plot_outliers_scatter(
 
 
 def plot_timeseries_outliers(
-    data: pd.DataFrame, outlier_labels: np.ndarray, time_column: str, value_columns: List[str]
+    X: pd.DataFrame = None,
+    data: pd.DataFrame = None,
+    outlier_labels: np.ndarray = None,
+    time_column: str = None,
+    value_columns: Optional[List[str]] = None,
+    title: str = "Time Series with Outliers",
 ) -> go.Figure:
     """
     Plot time series data with outliers highlighted.
 
     Parameters
     ----------
-    data : pd.DataFrame
+    X : pd.DataFrame, optional
+        DataFrame with time series data (alias for data parameter).
+    data : pd.DataFrame, optional
         DataFrame with time series data.
     outlier_labels : np.ndarray
         Binary outlier labels.
     time_column : str
         Name of time column.
-    value_columns : List[str]
-        Names of value columns to plot.
+    value_columns : List[str], optional
+        Names of value columns to plot. If None, plots all numeric columns except time_column.
+    title : str, default="Time Series with Outliers"
+        Plot title.
 
     Returns
     -------
     go.Figure
         Plotly figure object.
     """
+    # Accept either X or data parameter for consistency
+    if X is not None:
+        data = X
+    if data is None:
+        raise ValueError("Either X or data parameter must be provided")
+
+    # Auto-detect value columns if not specified
+    if value_columns is None:
+        numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
+        if time_column in numeric_cols:
+            numeric_cols.remove(time_column)
+        value_columns = numeric_cols[:5]  # Limit to first 5 for readability
+
+    if not value_columns:
+        raise ValueError("No numeric value columns found to plot")
+
     # Create subplots
     fig = sp.make_subplots(
         rows=len(value_columns),
@@ -797,8 +832,8 @@ Threshold: {threshold:.4f}"""
     ax6 = fig.add_subplot(gs[1, 2:])
     if np.any(outlier_mask) and np.any(normal_mask):
         numeric_features = X.select_dtypes(include=[np.number]).columns[:8]  # Top 8 features
-        normal_means = X[~outlier_labels][numeric_features].mean()
-        outlier_means = X[outlier_labels][numeric_features].mean()
+        normal_means = X[normal_mask][numeric_features].mean()
+        outlier_means = X[outlier_mask][numeric_features].mean()
 
         x_pos = np.arange(len(numeric_features))
         width = 0.35
@@ -831,7 +866,7 @@ Threshold: {threshold:.4f}"""
     # 8. Box plots by outlier status (third row, right half)
     ax8 = fig.add_subplot(gs[2, 2:])
     if np.any(outlier_mask) and np.any(normal_mask):
-        score_data = [outlier_scores[~outlier_labels], outlier_scores[outlier_labels]]
+        score_data = [outlier_scores[normal_mask], outlier_scores[outlier_mask]]
         bp = ax8.boxplot(score_data, labels=["Normal", "Outliers"], patch_artist=True)
         bp["boxes"][0].set_facecolor("lightblue")
         bp["boxes"][1].set_facecolor("lightcoral")

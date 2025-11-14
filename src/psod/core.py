@@ -961,11 +961,13 @@ class PSOD(BaseEstimator):
             df_scores[col] = normalized_error
             self.prediction_errors_[col] = prediction_error.values
 
+        df_scores = self.drop_cat_columns(df_scores)
+
+        # Mark as fitted before calculating feature importances
+        self._is_fitted = True
+
         # Calculate and store feature importances
         self._calculate_feature_importances()
-
-        df_scores = self.drop_cat_columns(df_scores)
-        self._is_fitted = True
 
         # Log fitting completion
         outlier_count = sum(self.make_outlier_classes(df_scores, use_trained_stats=False) == 1)
