@@ -1,5 +1,5 @@
 Welcome to PSOD Documentation
-============================
+=============================
 
 PSOD (Pseudo-Supervised Outlier Detection) is a flexible and powerful library for detecting outliers in tabular data using a pseudo-supervised learning approach.
 
@@ -7,18 +7,11 @@ PSOD (Pseudo-Supervised Outlier Detection) is a flexible and powerful library fo
    :maxdepth: 2
    :caption: Contents:
 
-   introduction
-   installation
-   quickstart
-   api/index
-   examples/index
-   theory
-   benchmarks
-   contributing
-   changelog
+   auto_examples/index
+   README
 
 Quick Example
-------------
+-------------
 
 .. code-block:: python
 
