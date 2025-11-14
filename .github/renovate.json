@@ -1,0 +1,102 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Renovate configuration for PSOD - Alternative to Dependabot with more features",
+  "extends": [
+    "config:base"
+  ],
+  "enabled": false,
+  "comment": "Set enabled to true if you prefer Renovate over Dependabot",
+
+  "timezone": "UTC",
+  "schedule": [
+    "before 10am on monday"
+  ],
+
+  "baseBranches": ["main", "develop"],
+
+  "labels": ["dependencies"],
+  "assignees": ["diogoribeiro7"],
+  "reviewers": ["diogoribeiro7"],
+
+  "packageRules": [
+    {
+      "description": "Group Python development dependencies",
+      "matchDepTypes": ["devDependencies"],
+      "matchPackagePatterns": ["*"],
+      "groupName": "Python development dependencies",
+      "schedule": ["before 10am on monday"]
+    },
+    {
+      "description": "Group Python production dependencies",
+      "matchDepTypes": ["dependencies"],
+      "matchPackagePatterns": ["*"],
+      "groupName": "Python production dependencies",
+      "schedule": ["before 10am on monday"]
+    },
+    {
+      "description": "Automerge patch updates for development dependencies",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "labels": ["dependencies", "automerge"]
+    },
+    {
+      "description": "Group GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "labels": ["dependencies", "github-actions"]
+    },
+    {
+      "description": "Docker base images",
+      "matchDatasources": ["docker"],
+      "groupName": "Docker base images",
+      "labels": ["dependencies", "docker"]
+    },
+    {
+      "description": "Pin major versions for critical dependencies",
+      "matchPackageNames": [
+        "numpy",
+        "pandas",
+        "scikit-learn"
+      ],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ],
+
+  "vulnerabilityAlerts": {
+    "labels": ["security", "dependencies"],
+    "assignees": ["diogoribeiro7"],
+    "schedule": ["at any time"]
+  },
+
+  "python": {
+    "enabled": true,
+    "fileMatch": ["(^|/)requirements\\.txt$", "(^|/)setup\\.py$", "(^|/)pyproject\\.toml$"]
+  },
+
+  "docker": {
+    "enabled": true,
+    "fileMatch": ["(^|/)Dockerfile$", "(^|/)docker/Dockerfile.*$"]
+  },
+
+  "github-actions": {
+    "enabled": true,
+    "fileMatch": ["^\\.github/workflows/[^/]+\\.ya?ml$"]
+  },
+
+  "prConcurrentLimit": 10,
+  "prCreation": "not-pending",
+  "prHourlyLimit": 0,
+
+  "semanticCommits": "enabled",
+  "commitMessagePrefix": "chore(deps):",
+
+  "ignoreDeps": [],
+
+  "lockFileMaintenance": {
+    "enabled": false,
+    "schedule": ["before 10am on the first day of the month"]
+  }
+}

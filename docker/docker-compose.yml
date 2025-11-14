@@ -1,0 +1,78 @@
+# Docker Compose configuration for PSOD development
+# ===================================================
+
+version: '3.8'
+
+services:
+  # Development environment with Jupyter
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: psod-dev
+    volumes:
+      - ..:/app
+      - ./data:/data
+      - ./models:/models
+      - ./logs:/logs
+    ports:
+      - "8888:8888"  # Jupyter
+      - "6006:6006"  # TensorBoard (if needed)
+    environment:
+      - PYTHONPATH=/app/src
+      - JUPYTER_ENABLE_LAB=yes
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+    networks:
+      - psod-network
+
+  # Testing environment
+  test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: psod-test
+    volumes:
+      - ..:/app
+    environment:
+      - PYTHONPATH=/app/src
+    command: pytest tests/ -v --cov=src/psod --cov-report=html
+    networks:
+      - psod-network
+
+  # Documentation build environment
+  docs:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: psod-docs
+    volumes:
+      - ..:/app
+    ports:
+      - "8000:8000"  # Docs server
+    command: sh -c "cd docs && make html && cd _build/html && python -m http.server 8000"
+    networks:
+      - psod-network
+
+  # Benchmarking environment
+  benchmark:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: psod-benchmark
+    volumes:
+      - ..:/app
+      - ./benchmarks:/app/benchmarks
+    environment:
+      - PYTHONPATH=/app/src
+    command: python benchmarks/run_benchmarks.py
+    networks:
+      - psod-network
+
+networks:
+  psod-network:
+    driver: bridge
+
+volumes:
+  data:
+  models:
+  logs:

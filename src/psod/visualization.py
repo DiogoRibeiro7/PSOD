@@ -18,78 +18,136 @@ import warnings
 
 def plot_outlier_scores(scores: Union[pd.Series, np.ndarray],
                        threshold: Optional[float] = None,
+                       bins: int = 50,
                        title: str = "Outlier Scores Distribution",
-                       figsize: Tuple[int, int] = (10, 6)) -> plt.Figure:
+                       figsize: Tuple[int, int] = (12, 8)) -> plt.Figure:
     """
-    Plot distribution of outlier scores.
-    
+    Create comprehensive outlier score distribution plot with 4 subplots.
+
     Parameters
     ----------
     scores : Union[pd.Series, np.ndarray]
         Outlier scores to plot.
     threshold : float, optional
         Threshold line to mark outliers.
+    bins : int, default=50
+        Number of bins for histogram.
     title : str, default="Outlier Scores Distribution"
         Plot title.
-    figsize : Tuple[int, int], default=(10, 6)
+    figsize : Tuple[int, int], default=(12, 8)
         Figure size.
-        
+
     Returns
     -------
     plt.Figure
-        Matplotlib figure object.
+        Matplotlib figure object with 4 subplots:
+        - Main histogram with colored outlier bins
+        - Box plot
+        - Q-Q plot against normal distribution
+        - Cumulative distribution function
     """
     # Convert to numpy array for consistency
     if isinstance(scores, pd.Series):
         scores_array = scores.values
     else:
-        scores_array = scores
-    
-    # Create figure and axis
-    fig, ax = plt.subplots(figsize=figsize)
-    
-    # Create histogram of scores
-    n_bins = min(50, len(scores_array) // 10)
-    n, bins, patches = ax.hist(scores_array, bins=n_bins, alpha=0.7, 
-                              color='skyblue', edgecolor='black', linewidth=0.5)
-    
-    # Color outliers differently if threshold is provided
+        scores_array = np.asarray(scores)
+
+    # Create figure with 2x2 subplots
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=figsize)
+
+    # 1. Main histogram with colored outlier bins
+    n, bins_edges, patches = ax1.hist(scores_array, bins=bins, alpha=0.7,
+                                       color='skyblue', edgecolor='black')
+
     if threshold is not None:
-        # Find bins that exceed threshold
-        for i, (patch, bin_left, bin_right) in enumerate(zip(patches, bins[:-1], bins[1:])):
-            if bin_right > threshold:
+        # Color outlier bars differently
+        for i, (patch, left, right) in enumerate(zip(patches, bins_edges[:-1], bins_edges[1:])):
+            if right > threshold:
                 patch.set_facecolor('red')
                 patch.set_alpha(0.8)
-        
-        # Add threshold line
-        ax.axvline(threshold, color='red', linestyle='--', linewidth=2, 
-                  label=f'Threshold: {threshold:.3f}')
-        
-        # Calculate outlier percentage
+
+        ax1.axvline(threshold, color='red', linestyle='--', linewidth=2,
+                   label=f'Threshold: {threshold:.3f}')
         outlier_pct = np.sum(scores_array > threshold) / len(scores_array) * 100
-        ax.text(0.02, 0.98, f'Outliers: {outlier_pct:.1f}%', 
-                transform=ax.transAxes, verticalalignment='top',
+        ax1.text(0.02, 0.98, f'Outliers: {outlier_pct:.1f}%',
+                transform=ax1.transAxes, verticalalignment='top',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-    
-    # Add summary statistics
-    stats_text = f'Mean: {np.mean(scores_array):.3f}\n'
-    stats_text += f'Std: {np.std(scores_array):.3f}\n'
-    stats_text += f'Min: {np.min(scores_array):.3f}\n'
-    stats_text += f'Max: {np.max(scores_array):.3f}'
-    
-    ax.text(0.98, 0.98, stats_text, transform=ax.transAxes, 
-            verticalalignment='top', horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
-    
-    # Formatting
-    ax.set_xlabel('Outlier Score')
-    ax.set_ylabel('Frequency')
-    ax.set_title(title)
-    ax.grid(True, alpha=0.3)
+
+    ax1.set_xlabel('Outlier Score')
+    ax1.set_ylabel('Frequency')
+    ax1.set_title('Score Distribution')
+    ax1.grid(True, alpha=0.3)
     if threshold is not None:
-        ax.legend()
-    
-    plt.tight_layout()
+        ax1.legend()
+
+    # 2. Box plot
+    bp = ax2.boxplot(scores_array, vert=True, patch_artist=True,
+                     widths=0.5, showmeans=True,
+                     meanprops=dict(marker='D', markerfacecolor='green',
+                                   markersize=8, markeredgecolor='darkgreen'))
+    bp['boxes'][0].set_facecolor('lightblue')
+    bp['boxes'][0].set_edgecolor('black')
+    bp['medians'][0].set_color('red')
+    bp['medians'][0].set_linewidth(2)
+
+    if threshold is not None:
+        ax2.axhline(threshold, color='red', linestyle='--', linewidth=2,
+                   label=f'Threshold: {threshold:.3f}')
+        ax2.legend()
+
+    ax2.set_ylabel('Outlier Score')
+    ax2.set_title('Box Plot')
+    ax2.set_xticklabels(['Scores'])
+    ax2.grid(True, alpha=0.3, axis='y')
+
+    # 3. Q-Q plot against normal distribution
+    from scipy import stats
+    stats.probplot(scores_array, dist="norm", plot=ax3)
+    ax3.set_title('Q-Q Plot vs Normal Distribution')
+    ax3.grid(True, alpha=0.3)
+    ax3.get_lines()[0].set_markerfacecolor('skyblue')
+    ax3.get_lines()[0].set_markeredgecolor('black')
+    ax3.get_lines()[0].set_markersize(4)
+    ax3.get_lines()[1].set_color('red')
+    ax3.get_lines()[1].set_linewidth(2)
+
+    # 4. Cumulative distribution
+    sorted_scores = np.sort(scores_array)
+    cumulative_pct = np.arange(1, len(sorted_scores) + 1) / len(sorted_scores) * 100
+    ax4.plot(sorted_scores, cumulative_pct, linewidth=2, color='steelblue')
+
+    if threshold is not None:
+        threshold_pct = np.sum(scores_array <= threshold) / len(scores_array) * 100
+        ax4.axvline(threshold, color='red', linestyle='--', linewidth=2)
+        ax4.axhline(threshold_pct, color='red', linestyle='--', linewidth=2)
+        ax4.plot(threshold, threshold_pct, 'ro', markersize=10, label=f'{threshold_pct:.1f}%')
+        ax4.text(threshold, threshold_pct + 5, f'{threshold_pct:.1f}%',
+                ha='center', va='bottom', fontweight='bold')
+
+    ax4.set_xlabel('Outlier Score')
+    ax4.set_ylabel('Cumulative Percentage')
+    ax4.set_title('Cumulative Distribution Function')
+    ax4.grid(True, alpha=0.3)
+    ax4.set_xlim(sorted_scores[0], sorted_scores[-1])
+    ax4.set_ylim(0, 105)
+    if threshold is not None:
+        ax4.legend()
+
+    # Add summary statistics box
+    stats_text = f'''Statistics:
+Mean: {np.mean(scores_array):.3f}
+Std: {np.std(scores_array):.3f}
+Median: {np.median(scores_array):.3f}
+IQR: {np.percentile(scores_array, 75) - np.percentile(scores_array, 25):.3f}
+Min: {np.min(scores_array):.3f}
+Max: {np.max(scores_array):.3f}'''
+
+    fig.text(0.02, 0.02, stats_text, fontsize=10,
+             bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
+             verticalalignment='bottom')
+
+    plt.suptitle(title, fontsize=16, y=0.98)
+    plt.tight_layout(rect=[0, 0.05, 1, 0.96])
     return fig
 
 
@@ -508,10 +566,12 @@ def plot_roc_pr_curves(y_true: np.ndarray,
 
 def create_outlier_dashboard(X: pd.DataFrame,
                            outlier_scores: np.ndarray,
-                           outlier_labels: np.ndarray) -> None:
+                           outlier_labels: np.ndarray,
+                           model: Optional[Any] = None,
+                           save_path: Optional[str] = None) -> plt.Figure:
     """
-    Create comprehensive dashboard for outlier analysis.
-    
+    Create comprehensive static dashboard with multiple analysis panels.
+
     Parameters
     ----------
     X : pd.DataFrame
@@ -520,158 +580,199 @@ def create_outlier_dashboard(X: pd.DataFrame,
         Continuous outlier scores.
     outlier_labels : np.ndarray
         Binary outlier labels.
+    model : Any, optional
+        Fitted PSOD model (for feature importance).
+    save_path : str, optional
+        Path to save the dashboard image.
+
+    Returns
+    -------
+    plt.Figure
+        Matplotlib figure object with comprehensive dashboard.
     """
-    # Create multi-panel dashboard
-    fig = plt.figure(figsize=(20, 15))
+    # Create large figure with 4x4 grid
+    fig = plt.figure(figsize=(24, 18))
     
-    # Define threshold from labels
+    # Define grid layout (4 rows x 4 columns)
+    gs = fig.add_gridspec(4, 4, hspace=0.3, wspace=0.3)
+
+    # Determine threshold from labels
     if np.any(outlier_labels):
         threshold = np.min(outlier_scores[outlier_labels == 1])
     else:
         threshold = np.percentile(outlier_scores, 95)
-    
-    # 1. Score distribution
-    plt.subplot(3, 3, 1)
-    plt.hist(outlier_scores, bins=30, alpha=0.7, color='skyblue', edgecolor='black')
-    if threshold is not None:
-        plt.axvline(threshold, color='red', linestyle='--', linewidth=2)
-    plt.xlabel('Outlier Score')
-    plt.ylabel('Frequency')
-    plt.title('Score Distribution')
-    plt.grid(True, alpha=0.3)
-    
-    # 2. Feature importance (if available)
-    plt.subplot(3, 3, 2)
-    if X.shape[1] <= 20:  # Only plot if reasonable number of features
-        feature_importance = np.std(X, axis=0)  # Use std as proxy for importance
-        top_features = np.argsort(feature_importance)[-10:]
-        plt.barh(range(len(top_features)), feature_importance[top_features])
-        plt.yticks(range(len(top_features)), X.columns[top_features])
-        plt.xlabel('Feature Importance (Std)')
-        plt.title('Top Feature Importances')
-    else:
-        plt.text(0.5, 0.5, f'Too many features ({X.shape[1]}) to display', 
-                ha='center', va='center', transform=plt.gca().transAxes)
-        plt.title('Feature Importance')
-    
-    # 3. 2D scatter plot
-    plt.subplot(3, 3, 3)
-    if X.shape[1] >= 2:
-        pca = PCA(n_components=2)
-        X_pca = pca.fit_transform(X)
-        colors = ['red' if label else 'blue' for label in outlier_labels]
-        plt.scatter(X_pca[:, 0], X_pca[:, 1], c=colors, alpha=0.6)
-        plt.xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} var)')
-        plt.ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} var)')
-        plt.title('PCA Projection')
-    
-    # 4. Correlation heatmap (subset of features)
-    plt.subplot(3, 3, 4)
-    if X.shape[1] <= 15:
-        corr_matrix = X.corr()
-        mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
-        sns.heatmap(corr_matrix, mask=mask, cmap='coolwarm', center=0, square=True)
-        plt.title('Feature Correlations')
-    else:
-        # Show correlation with first few features
-        subset_corr = X.iloc[:, :10].corr()
-        sns.heatmap(subset_corr, cmap='coolwarm', center=0, square=True)
-        plt.title('Feature Correlations (Subset)')
-    
-    # 5. Outlier vs normal statistics
-    plt.subplot(3, 3, 5)
+
     outlier_mask = outlier_labels == 1
     normal_mask = outlier_labels == 0
-    
-    if np.any(outlier_mask) and np.any(normal_mask):
-        outlier_means = X[outlier_mask].mean()
-        normal_means = X[normal_mask].mean()
-        
-        # Show means for top features
-        top_diff_features = np.argsort(np.abs(outlier_means - normal_means))[-10:]
-        
-        x_pos = np.arange(len(top_diff_features))
-        plt.bar(x_pos - 0.2, normal_means.iloc[top_diff_features], 
-                width=0.4, label='Normal', alpha=0.7)
-        plt.bar(x_pos + 0.2, outlier_means.iloc[top_diff_features], 
-                width=0.4, label='Outliers', alpha=0.7)
-        plt.xticks(x_pos, X.columns[top_diff_features], rotation=45)
-        plt.ylabel('Mean Value')
-        plt.title('Feature Means: Normal vs Outliers')
-        plt.legend()
-    
-    # 6. Summary statistics table
-    plt.subplot(3, 3, 6)
-    plt.axis('off')
-    
-    # Create summary statistics
+
+    # 1. Score distribution (top-left)
+    ax1 = fig.add_subplot(gs[0, 0])
+    n, bins, patches = ax1.hist(outlier_scores, bins=40, alpha=0.7,
+                                 color='skyblue', edgecolor='black')
+    for patch, left, right in zip(patches, bins[:-1], bins[1:]):
+        if right > threshold:
+            patch.set_facecolor('red')
+    ax1.axvline(threshold, color='red', linestyle='--', linewidth=2)
+    ax1.set_title('Score Distribution')
+    ax1.set_xlabel('Outlier Score')
+    ax1.set_ylabel('Frequency')
+    ax1.grid(True, alpha=0.3)
+
+    # 2. Feature importance (top-center)
+    ax2 = fig.add_subplot(gs[0, 1])
+    if model and hasattr(model, 'get_feature_importance'):
+        importance_df = model.get_feature_importance()
+        top_features = importance_df.head(10)
+        ax2.barh(range(len(top_features)), top_features['importance'], color='steelblue')
+        ax2.set_yticks(range(len(top_features)))
+        ax2.set_yticklabels(top_features['feature'])
+        ax2.set_title('Feature Importance')
+        ax2.set_xlabel('Importance Score')
+    else:
+        # Fallback: use variance as proxy
+        numeric_cols = X.select_dtypes(include=[np.number]).columns[:10]
+        importances = X[numeric_cols].var().sort_values(ascending=False)
+        ax2.barh(range(len(importances)), importances.values, color='steelblue')
+        ax2.set_yticks(range(len(importances)))
+        ax2.set_yticklabels(importances.index)
+        ax2.set_title('Feature Variance')
+        ax2.set_xlabel('Variance')
+    ax2.grid(True, alpha=0.3, axis='x')
+
+    # 3. PCA projection (top-center-right)
+    ax3 = fig.add_subplot(gs[0, 2])
+    if X.shape[1] >= 2:
+        pca = PCA(n_components=2)
+        numeric_data = X.select_dtypes(include=[np.number])
+        X_pca = pca.fit_transform(numeric_data)
+        colors = ['red' if label else 'blue' for label in outlier_labels]
+        scatter = ax3.scatter(X_pca[:, 0], X_pca[:, 1], c=colors, alpha=0.6, s=20)
+        ax3.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} var)')
+        ax3.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} var)')
+        ax3.set_title('PCA Projection')
+        ax3.grid(True, alpha=0.3)
+
+        # Add legend
+        from matplotlib.lines import Line2D
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='blue', label='Normal', markersize=8),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='red', label='Outlier', markersize=8)
+        ]
+        ax3.legend(handles=legend_elements, loc='best')
+
+    # 4. Summary statistics (top-right corner)
+    ax4 = fig.add_subplot(gs[0, 3])
+    ax4.axis('off')
+
     n_total = len(outlier_labels)
     n_outliers = np.sum(outlier_labels)
     outlier_rate = n_outliers / n_total * 100
-    
-    stats_text = f"""
-    Summary Statistics:
-    
-    Total Samples: {n_total:,}
-    Outliers: {n_outliers:,} ({outlier_rate:.1f}%)
-    Normal: {n_total - n_outliers:,} ({100 - outlier_rate:.1f}%)
-    
-    Score Statistics:
-    Mean: {np.mean(outlier_scores):.3f}
-    Std: {np.std(outlier_scores):.3f}
-    Min: {np.min(outlier_scores):.3f}
-    Max: {np.max(outlier_scores):.3f}
-    
-    Threshold: {threshold:.3f}
-    """
-    
-    plt.text(0.1, 0.9, stats_text, transform=plt.gca().transAxes,
-             verticalalignment='top', fontsize=12,
+
+    stats_text = f"""Summary Statistics
+
+Total Samples: {n_total:,}
+Outliers: {n_outliers:,} ({outlier_rate:.1f}%)
+Normal: {n_total - n_outliers:,} ({100-outlier_rate:.1f}%)
+
+Score Statistics:
+Mean: {np.mean(outlier_scores):.4f}
+Std: {np.std(outlier_scores):.4f}
+Median: {np.median(outlier_scores):.4f}
+Min: {np.min(outlier_scores):.4f}
+Max: {np.max(outlier_scores):.4f}
+
+Threshold: {threshold:.4f}"""
+
+    ax4.text(0.05, 0.95, stats_text, transform=ax4.transAxes, fontsize=11,
+             verticalalignment='top', fontfamily='monospace',
              bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
-    plt.title('Summary Statistics')
-    
-    # 7. Score vs index plot
-    plt.subplot(3, 3, 7)
+
+    # 5. Feature correlations (second row, left half)
+    ax5 = fig.add_subplot(gs[1, :2])
+    numeric_df = X.select_dtypes(include=[np.number])
+    if len(numeric_df.columns) > 1:
+        corr_matrix = numeric_df.iloc[:, :15].corr()  # Limit to first 15 features
+        im = ax5.imshow(corr_matrix, cmap='coolwarm', aspect='auto', vmin=-1, vmax=1)
+        ax5.set_xticks(range(len(corr_matrix.columns)))
+        ax5.set_yticks(range(len(corr_matrix.columns)))
+        ax5.set_xticklabels(corr_matrix.columns, rotation=45, ha='right', fontsize=8)
+        ax5.set_yticklabels(corr_matrix.columns, fontsize=8)
+        ax5.set_title('Feature Correlations')
+        plt.colorbar(im, ax=ax5, shrink=0.8)
+
+    # 6. Outlier vs Normal comparison (second row, right half)
+    ax6 = fig.add_subplot(gs[1, 2:])
+    if np.any(outlier_mask) and np.any(normal_mask):
+        numeric_features = X.select_dtypes(include=[np.number]).columns[:8]  # Top 8 features
+        normal_means = X[~outlier_labels][numeric_features].mean()
+        outlier_means = X[outlier_labels][numeric_features].mean()
+
+        x_pos = np.arange(len(numeric_features))
+        width = 0.35
+
+        ax6.bar(x_pos - width/2, normal_means.values, width, label='Normal',
+               alpha=0.8, color='blue')
+        ax6.bar(x_pos + width/2, outlier_means.values, width, label='Outliers',
+               alpha=0.8, color='red')
+
+        ax6.set_xlabel('Features')
+        ax6.set_ylabel('Mean Value')
+        ax6.set_title('Feature Means: Normal vs Outliers')
+        ax6.set_xticks(x_pos)
+        ax6.set_xticklabels(numeric_features, rotation=45, ha='right')
+        ax6.legend()
+        ax6.grid(True, alpha=0.3, axis='y')
+
+    # 7. Score evolution over sample index (third row, left half)
+    ax7 = fig.add_subplot(gs[2, :2])
     colors = ['red' if label else 'blue' for label in outlier_labels]
-    plt.scatter(range(len(outlier_scores)), outlier_scores, c=colors, alpha=0.6)
-    plt.xlabel('Sample Index')
-    plt.ylabel('Outlier Score')
-    plt.title('Outlier Scores by Sample')
-    if threshold is not None:
-        plt.axhline(threshold, color='red', linestyle='--', alpha=0.7)
-    
-    # 8. Feature distribution comparison
-    plt.subplot(3, 3, 8)
-    if X.shape[1] > 0:
-        # Pick a representative feature
-        feature_idx = np.argmax(X.std())
-        feature_name = X.columns[feature_idx]
-        
-        if np.any(outlier_mask) and np.any(normal_mask):
-            plt.hist(X.iloc[normal_mask, feature_idx], bins=20, alpha=0.6, 
-                    label='Normal', color='blue')
-            plt.hist(X.iloc[outlier_mask, feature_idx], bins=20, alpha=0.6, 
-                    label='Outliers', color='red')
-            plt.xlabel(feature_name)
-            plt.ylabel('Frequency')
-            plt.title(f'Distribution: {feature_name}')
-            plt.legend()
-    
-    # 9. Box plot of scores
-    plt.subplot(3, 3, 9)
-    score_data = [outlier_scores[normal_mask], outlier_scores[outlier_mask]]
-    labels = ['Normal', 'Outliers']
-    plt.boxplot(score_data, labels=labels)
-    plt.ylabel('Outlier Score')
-    plt.title('Score Distribution by Class')
-    plt.grid(True, alpha=0.3)
-    
-    plt.suptitle('Outlier Detection Dashboard', fontsize=16)
-    plt.tight_layout()
-    
-    # Save as HTML report
-    plt.savefig('/mnt/user-data/outputs/outlier_dashboard.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    ax7.scatter(range(len(outlier_scores)), outlier_scores, c=colors, alpha=0.6, s=15)
+    ax7.axhline(threshold, color='red', linestyle='--', alpha=0.7, linewidth=2)
+    ax7.set_xlabel('Sample Index')
+    ax7.set_ylabel('Outlier Score')
+    ax7.set_title('Outlier Scores by Sample Index')
+    ax7.grid(True, alpha=0.3)
+
+    # 8. Box plots by outlier status (third row, right half)
+    ax8 = fig.add_subplot(gs[2, 2:])
+    if np.any(outlier_mask) and np.any(normal_mask):
+        score_data = [outlier_scores[~outlier_labels], outlier_scores[outlier_labels]]
+        bp = ax8.boxplot(score_data, labels=['Normal', 'Outliers'], patch_artist=True)
+        bp['boxes'][0].set_facecolor('lightblue')
+        bp['boxes'][1].set_facecolor('lightcoral')
+        ax8.set_ylabel('Outlier Score')
+        ax8.set_title('Score Distribution by Class')
+        ax8.grid(True, alpha=0.3, axis='y')
+
+    # 9-12. Feature distributions (bottom row)
+    representative_features = X.select_dtypes(include=[np.number]).columns[:4]
+    for i, col in enumerate(representative_features):
+        ax = fig.add_subplot(gs[3, i])
+        if np.any(normal_mask):
+            ax.hist(X.loc[normal_mask, col], bins=20, alpha=0.6,
+                   label='Normal', color='blue', density=True)
+
+        if np.any(outlier_mask):
+            ax.hist(X.loc[outlier_mask, col], bins=20, alpha=0.6,
+                   label='Outliers', color='red', density=True)
+
+        ax.set_xlabel(col, fontsize=9)
+        ax.set_ylabel('Density', fontsize=9)
+        ax.set_title(f'Distribution: {col}', fontsize=10)
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.3)
+        ax.tick_params(labelsize=8)
+
+    # Overall title
+    fig.suptitle('PSOD Outlier Detection Dashboard', fontsize=20, y=0.98)
+
+    # Save if requested
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight',
+                   facecolor='white', edgecolor='none')
+        print(f"Dashboard saved to: {save_path}")
+
+    return fig
 
 
 def create_interactive_explorer(X: pd.DataFrame,

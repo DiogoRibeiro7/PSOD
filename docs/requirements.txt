@@ -1,0 +1,27 @@
+# Documentation build dependencies
+
+# Core Sphinx
+sphinx>=4.0.0
+
+# Theme
+pydata-sphinx-theme>=0.8.0
+
+# Extensions
+sphinx-autodoc-typehints>=1.12.0
+sphinx-copybutton>=0.4.0
+sphinx-design>=0.1.0
+myst-parser>=0.17.0
+nbsphinx>=0.8.0
+sphinx-gallery>=0.10.0
+
+# Optional (for examples and visualizations)
+matplotlib>=3.3.0
+seaborn>=0.11.0
+plotly>=5.0.0
+ipykernel>=6.0.0
+
+# For better code highlighting
+pygments>=2.10.0
+
+# For spell checking (optional)
+# sphinxcontrib-spelling>=7.0.0

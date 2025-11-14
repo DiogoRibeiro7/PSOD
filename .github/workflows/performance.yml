@@ -1,0 +1,454 @@
+name: Performance Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly on Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+          pip install pytest-benchmark memory_profiler matplotlib
+
+      - name: Run benchmarks
+        run: |
+          cd benchmarks
+          python run_benchmarks.py --output benchmark-results.json
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmarks/benchmark-results.json
+
+      - name: Generate benchmark report
+        run: |
+          cd benchmarks
+          python << 'EOF'
+          import json
+          import sys
+
+          try:
+              with open('benchmark-results.json') as f:
+                  results = json.load(f)
+
+              print("## 📊 Benchmark Results", file=sys.stderr)
+              print("", file=sys.stderr)
+              print("| Benchmark | Time (s) | Memory (MB) |", file=sys.stderr)
+              print("|-----------|----------|-------------|", file=sys.stderr)
+
+              for bench in results.get('benchmarks', []):
+                  name = bench.get('name', 'Unknown')
+                  time = bench.get('time', 0)
+                  memory = bench.get('memory', 0)
+                  print(f"| {name} | {time:.4f} | {memory:.2f} |", file=sys.stderr)
+          except Exception as e:
+              print(f"Error generating report: {e}", file=sys.stderr)
+          EOF
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        if: github.event_name != 'pull_request'
+        with:
+          tool: 'customBiggerIsBetter'
+          output-file-path: benchmarks/benchmark-results.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: false
+
+  performance-comparison:
+    name: Performance Comparison with Main
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+
+      - name: Run benchmarks on PR
+        run: |
+          cd benchmarks
+          python run_benchmarks.py --output pr-benchmark.json
+
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-branch
+
+      - name: Install main branch
+        run: |
+          cd main-branch
+          pip install -e ".[dev,test]"
+
+      - name: Run benchmarks on main
+        run: |
+          cd main-branch/benchmarks
+          python run_benchmarks.py --output main-benchmark.json
+          cp main-benchmark.json ../../benchmarks/
+
+      - name: Compare performance
+        run: |
+          cd benchmarks
+          python << 'EOF'
+          import json
+          import sys
+
+          def load_benchmarks(filename):
+              try:
+                  with open(filename) as f:
+                      return json.load(f).get('benchmarks', [])
+              except:
+                  return []
+
+          pr_benchmarks = load_benchmarks('pr-benchmark.json')
+          main_benchmarks = load_benchmarks('main-benchmark.json')
+
+          # Create lookup dict for main benchmarks
+          main_dict = {b['name']: b for b in main_benchmarks}
+
+          print("## ⚡ Performance Comparison", file=sys.stderr)
+          print("", file=sys.stderr)
+          print("| Benchmark | Main | PR | Change |", file=sys.stderr)
+          print("|-----------|------|----|---------| ", file=sys.stderr)
+
+          regressions = []
+
+          for pr_bench in pr_benchmarks:
+              name = pr_bench['name']
+              pr_time = pr_bench.get('time', 0)
+
+              if name in main_dict:
+                  main_time = main_dict[name].get('time', 0)
+                  if main_time > 0:
+                      change_pct = ((pr_time - main_time) / main_time) * 100
+                      change_str = f"{change_pct:+.1f}%"
+
+                      if change_pct > 10:  # More than 10% slower
+                          change_str = f"⚠️ {change_str}"
+                          regressions.append((name, change_pct))
+                  else:
+                      change_str = "N/A"
+              else:
+                  change_str = "New"
+                  pr_time = pr_bench.get('time', 0)
+
+              print(f"| {name} | {main_dict.get(name, {}).get('time', 'N/A'):.4f}s | {pr_time:.4f}s | {change_str} |", file=sys.stderr)
+
+          if regressions:
+              print("", file=sys.stderr)
+              print("### ⚠️ Performance Regressions Detected", file=sys.stderr)
+              print("", file=sys.stderr)
+              for name, change in regressions:
+                  print(f"- **{name}**: {change:+.1f}% slower", file=sys.stderr)
+              print("", file=sys.stderr)
+              print("Please investigate these regressions before merging.", file=sys.stderr)
+          EOF
+
+      - name: Upload comparison results
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-comparison
+          path: |
+            benchmarks/pr-benchmark.json
+            benchmarks/main-benchmark.json
+
+  memory-profiling:
+    name: Memory Profiling
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+          pip install memory_profiler matplotlib psutil
+
+      - name: Run memory profiling
+        run: |
+          python -m memory_profiler benchmarks/methods.py > memory-profile.txt || true
+
+      - name: Generate memory report
+        run: |
+          if [ -f memory-profile.txt ]; then
+            echo "## 💾 Memory Profile" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat memory-profile.txt >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload memory profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-profile
+          path: memory-profile.txt
+
+  scalability-test:
+    name: Scalability Testing
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dataset-size: [100, 1000, 5000, 10000]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+
+      - name: Run scalability test
+        run: |
+          python << 'EOF'
+          import numpy as np
+          import pandas as pd
+          import time
+          import json
+          from psod import PSOD
+
+          n_samples = ${{ matrix.dataset-size }}
+          n_features = 10
+
+          # Generate data
+          np.random.seed(42)
+          X = np.random.randn(n_samples, n_features)
+          df = pd.DataFrame(X)
+
+          # Time the execution
+          detector = PSOD(random_seed=42)
+
+          start_time = time.time()
+          scores = detector.fit_predict(df, return_class=False)
+          end_time = time.time()
+
+          elapsed = end_time - start_time
+
+          result = {
+              'n_samples': n_samples,
+              'n_features': n_features,
+              'time_seconds': elapsed,
+              'samples_per_second': n_samples / elapsed if elapsed > 0 else 0
+          }
+
+          with open(f'scalability-{n_samples}.json', 'w') as f:
+              json.dump(result, f)
+
+          print(f"Dataset size: {n_samples}, Time: {elapsed:.4f}s, Throughput: {result['samples_per_second']:.0f} samples/s")
+          EOF
+
+      - name: Upload scalability results
+        uses: actions/upload-artifact@v4
+        with:
+          name: scalability-${{ matrix.dataset-size }}
+          path: scalability-${{ matrix.dataset-size }}.json
+
+  collect-results:
+    name: Collect and Visualize Results
+    runs-on: ubuntu-latest
+    needs: [benchmark, memory-profiling, scalability-test]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install visualization dependencies
+        run: |
+          pip install matplotlib pandas numpy
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Generate performance summary
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          print("## 📈 Performance Test Summary", file=sys.stderr)
+          print("", file=sys.stderr)
+
+          # Collect scalability results
+          scalability_results = []
+          for file in Path('artifacts').rglob('scalability-*.json'):
+              with open(file) as f:
+                  scalability_results.append(json.load(f))
+
+          if scalability_results:
+              scalability_results.sort(key=lambda x: x['n_samples'])
+
+              print("### Scalability Results", file=sys.stderr)
+              print("", file=sys.stderr)
+              print("| Dataset Size | Time (s) | Throughput (samples/s) |", file=sys.stderr)
+              print("|--------------|----------|------------------------|", file=sys.stderr)
+
+              for result in scalability_results:
+                  print(f"| {result['n_samples']:,} | {result['time_seconds']:.4f} | {result['samples_per_second']:.0f} |", file=sys.stderr)
+
+          print("", file=sys.stderr)
+          print("### Performance Insights", file=sys.stderr)
+          print("", file=sys.stderr)
+
+          if len(scalability_results) >= 2:
+              # Calculate complexity estimate
+              small = scalability_results[0]
+              large = scalability_results[-1]
+
+              size_ratio = large['n_samples'] / small['n_samples']
+              time_ratio = large['time_seconds'] / small['time_seconds']
+
+              print(f"- Dataset size increased by **{size_ratio:.1f}x**", file=sys.stderr)
+              print(f"- Execution time increased by **{time_ratio:.1f}x**", file=sys.stderr)
+
+              # Estimate complexity
+              if time_ratio < size_ratio * 1.5:
+                  print("- Estimated complexity: **~O(n)** (linear)", file=sys.stderr)
+              elif time_ratio < size_ratio ** 1.5:
+                  print("- Estimated complexity: **~O(n log n)**", file=sys.stderr)
+              else:
+                  print("- Estimated complexity: **~O(n²)** or higher", file=sys.stderr)
+          EOF
+
+      - name: Create performance dashboard
+        run: |
+          python << 'EOF'
+          import matplotlib.pyplot as plt
+          import json
+          from pathlib import Path
+
+          # Collect scalability results
+          scalability_results = []
+          for file in Path('artifacts').rglob('scalability-*.json'):
+              with open(file) as f:
+                  scalability_results.append(json.load(f))
+
+          if scalability_results:
+              scalability_results.sort(key=lambda x: x['n_samples'])
+
+              sizes = [r['n_samples'] for r in scalability_results]
+              times = [r['time_seconds'] for r in scalability_results]
+
+              fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+              # Plot 1: Execution time vs dataset size
+              ax1.plot(sizes, times, 'o-', linewidth=2, markersize=8)
+              ax1.set_xlabel('Dataset Size (samples)', fontsize=12)
+              ax1.set_ylabel('Execution Time (seconds)', fontsize=12)
+              ax1.set_title('Scalability: Execution Time', fontsize=14)
+              ax1.grid(True, alpha=0.3)
+              ax1.set_xscale('log')
+              ax1.set_yscale('log')
+
+              # Plot 2: Throughput
+              throughputs = [r['samples_per_second'] for r in scalability_results]
+              ax2.plot(sizes, throughputs, 's-', linewidth=2, markersize=8, color='orange')
+              ax2.set_xlabel('Dataset Size (samples)', fontsize=12)
+              ax2.set_ylabel('Throughput (samples/second)', fontsize=12)
+              ax2.set_title('Scalability: Throughput', fontsize=14)
+              ax2.grid(True, alpha=0.3)
+              ax2.set_xscale('log')
+
+              plt.tight_layout()
+              plt.savefig('performance-dashboard.png', dpi=150, bbox_inches='tight')
+              print("Performance dashboard created: performance-dashboard.png")
+          EOF
+
+      - name: Upload performance dashboard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-dashboard
+          path: performance-dashboard.png
+
+  performance-report:
+    name: Generate Performance Report
+    runs-on: ubuntu-latest
+    needs: [collect-results]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Download performance dashboard
+        uses: actions/download-artifact@v4
+        with:
+          name: performance-dashboard
+          path: performance/
+
+      - name: Update performance history
+        run: |
+          mkdir -p performance
+          cp performance/*.png performance/latest.png || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add performance/
+          git commit -m "Update performance reports" || echo "No changes to commit"
+          git push || echo "No changes to push"

@@ -1,0 +1,364 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly on Monday at 00:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-3.0, AGPL-3.0
+
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        language: ['python']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  bandit-scan:
+    name: Bandit Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Bandit
+        run: |
+          pip install bandit[toml]
+
+      - name: Run Bandit scan
+        run: |
+          bandit -r src/ -f json -o bandit-report.json
+          bandit -r src/ -f txt -o bandit-report.txt
+          bandit -r src/ -ll
+
+      - name: Upload Bandit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-security-scan
+          path: |
+            bandit-report.json
+            bandit-report.txt
+
+      - name: Annotate code with Bandit findings
+        if: failure()
+        run: |
+          echo "## 🔒 Bandit Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          cat bandit-report.txt >> $GITHUB_STEP_SUMMARY
+
+  safety-check:
+    name: Safety Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Safety
+        run: |
+          pip install safety
+
+      - name: Run Safety check
+        run: |
+          # Check installed packages
+          pip install -r requirements.txt || true
+          safety check --json --output safety-report.json || true
+          safety check --output safety-report.txt || true
+          safety check
+
+      - name: Upload Safety results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-dependency-scan
+          path: |
+            safety-report.json
+            safety-report.txt
+
+  pip-audit:
+    name: Pip Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-audit
+        run: |
+          pip install pip-audit
+
+      - name: Run pip-audit
+        run: |
+          pip install -r requirements.txt || true
+          pip-audit --desc --format json --output pip-audit-report.json || true
+          pip-audit --desc --format cyclonedx-json --output pip-audit-sbom.json || true
+          pip-audit --desc
+
+      - name: Upload pip-audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-scan
+          path: |
+            pip-audit-report.json
+            pip-audit-sbom.json
+
+  semgrep-scan:
+    name: Semgrep Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/python
+            p/bandit
+            p/owasp-top-ten
+          generateSarif: true
+
+      - name: Upload SARIF file
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+
+  trivy-scan:
+    name: Trivy Vulnerability Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy results to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Generate Trivy report
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          output: 'trivy-report.txt'
+
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-scan
+          path: trivy-report.txt
+
+  secrets-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pip-licenses
+          pip install -r requirements.txt || true
+
+      - name: Check licenses
+        run: |
+          pip-licenses --format=json --output-file=licenses.json
+          pip-licenses --format=markdown --output-file=licenses.md
+          pip-licenses
+
+      - name: Check for incompatible licenses
+        run: |
+          python << 'EOF'
+          import json
+          import sys
+
+          # List of prohibited licenses
+          prohibited = ['GPL-3.0', 'AGPL-3.0', 'SSPL']
+
+          with open('licenses.json') as f:
+              licenses = json.load(f)
+
+          violations = []
+          for pkg in licenses:
+              lic = pkg.get('License', '')
+              if any(p in lic for p in prohibited):
+                  violations.append(f"{pkg['Name']} ({lic})")
+
+          if violations:
+              print("❌ Found incompatible licenses:")
+              for v in violations:
+                  print(f"  - {v}")
+              sys.exit(1)
+          else:
+              print("✅ All licenses are compatible")
+          EOF
+
+      - name: Upload license report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: |
+            licenses.json
+            licenses.md
+
+  security-scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      id-token: write
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@v2
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+
+  security-summary:
+    name: Security Scan Summary
+    runs-on: ubuntu-latest
+    needs:
+      - codeql-analysis
+      - bandit-scan
+      - safety-check
+      - pip-audit
+      - semgrep-scan
+      - trivy-scan
+      - secrets-scan
+      - license-check
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanner | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| CodeQL | ${{ needs.codeql-analysis.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bandit | ${{ needs.bandit-scan.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Safety | ${{ needs.safety-check.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pip-Audit | ${{ needs.pip-audit.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Semgrep | ${{ needs.semgrep-scan.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy | ${{ needs.trivy-scan.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secrets | ${{ needs.secrets-scan.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| License | ${{ needs.license-check.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Review all security findings in the Security tab" >> $GITHUB_STEP_SUMMARY
+          echo "- Update vulnerable dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "- Fix high/critical severity issues immediately" >> $GITHUB_STEP_SUMMARY

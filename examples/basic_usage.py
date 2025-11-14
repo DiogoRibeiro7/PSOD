@@ -7,12 +7,13 @@ import numpy as np
 from sklearn.linear_model import Ridge
 from category_encoders import OneHotEncoder
 
-# TODO: Update import once package is installed
-# from psod import PSOD
-# For now, assuming direct import
+
+# For development, add parent directory to path
 import sys
-sys.path.append('../src')
-from psod.core import PSOD
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+
+from psod import PSOD
 
 
 def basic_example():
@@ -62,10 +63,47 @@ def basic_example():
     
     print(f"\nNumber of outliers detected: {sum(outlier_labels)}")
     print(f"Outlier indices: {df.index[outlier_labels == 1].tolist()}")
-    
-    # TODO: Add visualization
-    # from psod.visualization import plot_outlier_scores
-    # plot_outlier_scores(outlier_scores, threshold=detector.pred_distribution_stats['mean_score'])
+
+    # Visualize outlier scores
+    try:
+        from psod.visualization import plot_outlier_scores, plot_outliers_scatter, plot_feature_contributions
+        import matplotlib.pyplot as plt
+
+        print("\nGenerating visualizations...")
+
+        # Plot 1: Outlier scores distribution
+        fig1, ax1 = plt.subplots(figsize=(10, 6))
+        plot_outlier_scores(outlier_scores, outlier_labels, ax=ax1)
+        plt.tight_layout()
+        plt.savefig('basic_outlier_scores.png', dpi=150, bbox_inches='tight')
+        print("Saved: basic_outlier_scores.png")
+
+        # Plot 2: 2D scatter plot of outliers
+        fig2, ax2 = plt.subplots(figsize=(10, 6))
+        plot_outliers_scatter(
+            df[['feature1', 'feature2']].values,
+            outlier_labels,
+            outlier_scores,
+            feature_names=['feature1', 'feature2'],
+            ax=ax2
+        )
+        plt.tight_layout()
+        plt.savefig('basic_outliers_scatter.png', dpi=150, bbox_inches='tight')
+        print("Saved: basic_outliers_scatter.png")
+
+        # Plot 3: Feature contributions
+        if hasattr(detector, 'feature_importances_') and detector.feature_importances_ is not None:
+            fig3, ax3 = plt.subplots(figsize=(10, 6))
+            plot_feature_contributions(detector.feature_importances_, ax=ax3)
+            plt.tight_layout()
+            plt.savefig('basic_feature_contributions.png', dpi=150, bbox_inches='tight')
+            print("Saved: basic_feature_contributions.png")
+
+        print("\nVisualization complete!")
+
+    except ImportError as e:
+        print(f"\nWarning: Could not generate visualizations: {e}")
+        print("Make sure matplotlib is installed: pip install matplotlib")
 
 
 def advanced_example():

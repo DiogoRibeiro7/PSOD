@@ -1,0 +1,82 @@
+# Development Dockerfile for PSOD
+# ==================================
+# Includes all development tools and Jupyter
+
+FROM python:3.11-slim
+
+LABEL maintainer="Diogo Ribeiro <your.email@example.com>"
+LABEL description="PSOD Development Environment"
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    curl \
+    vim \
+    less \
+    htop \
+    libgomp1 \
+    graphviz \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install build tools
+RUN pip install --upgrade pip setuptools wheel
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements
+COPY requirements.txt /tmp/
+
+# Install Python dependencies
+RUN pip install -r /tmp/requirements.txt
+
+# Install development dependencies
+RUN pip install \
+    jupyter \
+    jupyterlab \
+    ipython \
+    ipdb \
+    pytest \
+    pytest-cov \
+    pytest-xdist \
+    black \
+    isort \
+    flake8 \
+    mypy \
+    pylint \
+    bandit \
+    pre-commit \
+    matplotlib \
+    seaborn \
+    plotly \
+    memory_profiler \
+    line_profiler \
+    sphinx \
+    sphinx-rtd-theme
+
+# Copy source code
+COPY . /app/
+
+# Install PSOD in editable mode
+RUN pip install -e ".[dev,test,viz,docs]"
+
+# Create directories
+RUN mkdir -p /data /models /logs /notebooks
+
+# Expose Jupyter port
+EXPOSE 8888
+
+# Set up Jupyter configuration
+RUN jupyter notebook --generate-config && \
+    echo "c.NotebookApp.token = ''" >> /root/.jupyter/jupyter_notebook_config.py && \
+    echo "c.NotebookApp.password = ''" >> /root/.jupyter/jupyter_notebook_config.py
+
+# Default command starts Jupyter
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]

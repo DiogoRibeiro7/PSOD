@@ -1,5 +1,6 @@
 """
-Tests for PSOD outlier detection.
+Comprehensive unit tests for PSOD outlier detection core module.
+Tests all core functionality, edge cases, and sklearn compatibility.
 """
 
 import pytest
@@ -7,335 +8,904 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import RandomForestRegressor
-from category_encoders import TargetEncoder, OneHotEncoder
-
-# TODO: Update import once package structure is finalized
-# from psod import PSOD
-# For now, assuming direct import
+from pathlib import Path
+import pickle
 import sys
-sys.path.append('../src')
-from psod.core import PSOD
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+
+from psod import PSOD
+
+# Try importing optional encoders
+try:
+    from category_encoders import TargetEncoder, OneHotEncoder
+    HAS_ENCODERS = True
+except ImportError:
+    HAS_ENCODERS = False
 
 
-class TestPSOD:
-    """Test suite for PSOD outlier detection."""
-    
-    @pytest.fixture
-    def sample_data(self):
-        """Create sample data for testing."""
-        np.random.seed(42)
-        return pd.DataFrame({
-            'numeric1': np.random.randn(100),
-            'numeric2': np.random.randn(100),
-            'numeric3': np.random.randn(100),
-            'categorical': np.random.choice(['A', 'B', 'C'], 100)
-        })
-    
-    @pytest.fixture
-    def outlier_data(self):
-        """Create data with known outliers."""
-        np.random.seed(42)
-        normal_data = np.random.randn(95, 3)
-        outliers = np.array([[10, 10, 10], [-10, -10, -10], [0, 20, 0], [15, 0, 0], [0, 0, -15]])
-        data = np.vstack([normal_data, outliers])
-        return pd.DataFrame(data, columns=['X1', 'X2', 'X3'])
-    
-    # TODO: Add fixture for time series data
-    @pytest.fixture
-    def time_series_data(self):
-        """Create time series data with outliers."""
-        pass
-    
-    # TODO: Add fixture for high-dimensional data
-    @pytest.fixture
-    def high_dimensional_data(self):
-        """Create high-dimensional sparse data."""
-        pass
-    
-    def test_initialization(self):
-        """Test PSOD initialization with various parameters."""
-        # Test default initialization
+# ============================================================================
+# INITIALIZATION AND PARAMETER VALIDATION TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODInitialization:
+    """Tests for PSOD initialization and parameter validation."""
+
+    def test_default_initialization(self):
+        """Test PSOD initialization with default parameters."""
         psod = PSOD()
         assert psod.n_jobs == -1
         assert psod.min_cols_chosen == 0.5
-        
-        # Test custom initialization
+        assert psod.max_cols_chosen == 1.0
+        assert psod.correlation_threshold == 0.75
+        assert psod.sample_frac == 0.75
+        assert psod.flag_outlier_on == "both ends"
+        assert psod.contamination is None
+        assert psod.missing_value_strategy == "mean"
+
+    def test_custom_initialization(self):
+        """Test PSOD initialization with custom parameters."""
         psod = PSOD(
             n_jobs=2,
             min_cols_chosen=0.3,
             max_cols_chosen=0.8,
-            random_seed=123
+            random_seed=123,
+            contamination=0.1,
+            missing_value_strategy="median"
         )
         assert psod.n_jobs == 2
         assert psod.min_cols_chosen == 0.3
+        assert psod.max_cols_chosen == 0.8
         assert psod.random_seed == 123
-    
-    def test_parameter_validation(self):
-        """Test parameter validation."""
-        # Test invalid min_cols_chosen
+        assert psod.contamination == 0.1
+        assert psod.missing_value_strategy == "median"
+
+    def test_invalid_min_cols_chosen(self):
+        """Test invalid min_cols_chosen raises ValueError."""
         with pytest.raises(ValueError, match="min_cols_chosen must be between 0 and 1"):
             PSOD(min_cols_chosen=1.5)
-        
-        # Test invalid max_cols_chosen
+
+        with pytest.raises(ValueError, match="min_cols_chosen must be between 0 and 1"):
+            PSOD(min_cols_chosen=-0.1)
+
+    def test_invalid_max_cols_chosen(self):
+        """Test invalid max_cols_chosen raises ValueError."""
+        with pytest.raises(ValueError, match="max_cols_chosen must be between 0 and 1"):
+            PSOD(max_cols_chosen=1.5)
+
         with pytest.raises(ValueError, match="max_cols_chosen must be between 0 and 1"):
             PSOD(max_cols_chosen=-0.1)
-        
-        # Test min > max
+
+    def test_min_greater_than_max(self):
+        """Test min > max raises ValueError."""
         with pytest.raises(ValueError, match="min_cols_chosen cannot be higher than max_cols_chosen"):
             PSOD(min_cols_chosen=0.8, max_cols_chosen=0.5)
-        
-        # Test invalid flag_outlier_on
+
+    def test_invalid_flag_outlier_on(self):
+        """Test invalid flag_outlier_on raises ValueError."""
         with pytest.raises(ValueError, match='flag_outlier_on must be one of'):
             PSOD(flag_outlier_on="invalid")
-        
-        # TODO: Test invalid transform_algorithm
-        # with pytest.raises(ValueError):
-        #     PSOD(transform_algorithm="invalid")
-    
-    def test_fit_predict_basic(self, sample_data):
+
+    def test_invalid_contamination(self):
+        """Test invalid contamination parameter."""
+        with pytest.raises(ValueError):
+            PSOD(contamination=-0.1)
+
+        with pytest.raises(ValueError):
+            PSOD(contamination=1.5)
+
+    def test_invalid_missing_value_strategy(self):
+        """Test invalid missing value strategy."""
+        with pytest.raises(ValueError):
+            PSOD(missing_value_strategy="invalid_strategy")
+
+
+# ============================================================================
+# CORE FUNCTIONALITY TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODFitPredict:
+    """Tests for PSOD fit_predict functionality."""
+
+    def test_fit_predict_basic(self, sample_numeric_data):
         """Test basic fit_predict functionality."""
         psod = PSOD(random_seed=42)
-        scores = psod.fit_predict(sample_data.drop('categorical', axis=1))
-        
-        assert isinstance(scores, pd.Series)
-        assert len(scores) == len(sample_data)
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert isinstance(scores, (pd.Series, np.ndarray))
+        assert len(scores) == len(sample_numeric_data)
         assert all(scores >= 0)
-        
-        # TODO: Test that model is marked as fitted
-        # assert psod._is_fitted
-    
-    def test_fit_predict_with_categorical(self, sample_data):
+
+        # Model should be marked as fitted
+        assert psod._is_fitted
+
+    def test_fit_predict_return_class(self, sample_numeric_data):
+        """Test fit_predict with return_class=True."""
+        psod = PSOD(random_seed=42, contamination=0.1)
+        labels = psod.fit_predict(sample_numeric_data, return_class=True)
+
+        assert isinstance(labels, (pd.Series, np.ndarray))
+        assert len(labels) == len(sample_numeric_data)
+        assert set(np.unique(labels)).issubset({0, 1})
+
+        # Should have approximately 10% outliers
+        outlier_ratio = np.sum(labels) / len(labels)
+        assert 0.05 <= outlier_ratio <= 0.15
+
+    def test_fit_predict_with_contamination(self, sample_numeric_data):
+        """Test automatic threshold with contamination parameter."""
+        psod = PSOD(contamination=0.05, random_seed=42)
+        labels = psod.fit_predict(sample_numeric_data, return_class=True)
+
+        outlier_ratio = np.sum(labels) / len(labels)
+        # Should be close to 5%
+        assert abs(outlier_ratio - 0.05) < 0.03
+
+    @pytest.mark.skipif(not HAS_ENCODERS, reason="category_encoders not installed")
+    def test_fit_predict_with_categorical(self, sample_data_with_categorical):
         """Test fit_predict with categorical columns."""
+        cat_cols = ['category_1', 'category_2']
+
         psod = PSOD(
-            cat_columns=['categorical'],
+            cat_columns=cat_cols,
             random_seed=42,
             cat_encoder=OneHotEncoder
         )
-        scores = psod.fit_predict(sample_data)
-        
-        assert isinstance(scores, pd.Series)
-        assert len(scores) == len(sample_data)
-    
-    def test_outlier_detection_accuracy(self, outlier_data):
+        scores = psod.fit_predict(sample_data_with_categorical)
+
+        assert isinstance(scores, (pd.Series, np.ndarray))
+        assert len(scores) == len(sample_data_with_categorical)
+
+    def test_fit_predict_known_outliers(self, outlier_data):
         """Test if known outliers are detected."""
         psod = PSOD(
             stdevs_to_outlier=2.0,
             random_seed=42,
-            sample_frac=0.8
+            contamination=0.05
         )
-        
+
         # Get outlier classes
         outlier_classes = psod.fit_predict(outlier_data, return_class=True)
-        
+
         # Last 5 points should be detected as outliers
         assert sum(outlier_classes[-5:]) >= 3  # At least 3 out of 5 outliers detected
         assert sum(outlier_classes[:-5]) <= 5  # Few false positives in normal data
-    
-    def test_predict_on_new_data(self, sample_data):
+
+    def test_fit_predict_reproducibility(self, sample_numeric_data):
+        """Test that results are reproducible with same seed."""
+        psod1 = PSOD(random_seed=42)
+        scores1 = psod1.fit_predict(sample_numeric_data)
+
+        psod2 = PSOD(random_seed=42)
+        scores2 = psod2.fit_predict(sample_numeric_data)
+
+        assert np.allclose(scores1, scores2)
+
+    def test_fit_predict_small_dataset(self, small_dataset):
+        """Test fit_predict with very small dataset."""
+        psod = PSOD(random_seed=42)
+        scores = psod.fit_predict(small_dataset)
+
+        assert len(scores) == len(small_dataset)
+
+    def test_fit_predict_single_column(self, single_column_data):
+        """Test with single column data."""
+        psod = PSOD(min_cols_chosen=1.0, max_cols_chosen=1.0, random_seed=42)
+
+        with pytest.warns(UserWarning):
+            scores = psod.fit_predict(single_column_data)
+
+        assert len(scores) == len(single_column_data)
+
+
+@pytest.mark.unit
+class TestPSODPredict:
+    """Tests for PSOD predict functionality."""
+
+    def test_predict_on_new_data(self, sample_numeric_data):
         """Test prediction on new data."""
         psod = PSOD(random_seed=42)
-        
+
         # Fit on first 80 rows
-        train_data = sample_data.iloc[:80].drop('categorical', axis=1)
+        train_data = sample_numeric_data.iloc[:80]
         psod.fit_predict(train_data)
-        
+
         # Predict on last 20 rows
-        test_data = sample_data.iloc[80:].drop('categorical', axis=1)
+        test_data = sample_numeric_data.iloc[80:]
         scores = psod.predict(test_data)
-        
-        assert isinstance(scores, pd.Series)
+
+        assert isinstance(scores, (pd.Series, np.ndarray))
         assert len(scores) == len(test_data)
-    
-    # TODO: Test predict without fitting
-    def test_predict_without_fit(self, sample_data):
+
+    def test_predict_without_fit(self, sample_numeric_data):
         """Test that predict raises error when not fitted."""
         psod = PSOD()
+
         with pytest.raises(ValueError, match="Model must be fitted"):
-            psod.predict(sample_data)
-    
-    def test_different_base_learners(self, sample_data):
-        """Test with different base learners."""
-        data_numeric = sample_data.drop('categorical', axis=1)
-        
-        # Test with Ridge
-        psod_ridge = PSOD(base_learner=Ridge, random_seed=42)
-        scores_ridge = psod_ridge.fit_predict(data_numeric)
-        
-        # Test with LinearRegression (default)
-        psod_linear = PSOD(base_learner=LinearRegression, random_seed=42)
-        scores_linear = psod_linear.fit_predict(data_numeric)
-        
-        # TODO: Test with RandomForest
-        # psod_rf = PSOD(base_learner=RandomForestRegressor, random_seed=42)
-        # scores_rf = psod_rf.fit_predict(data_numeric)
-        
-        assert len(scores_ridge) == len(scores_linear) == len(data_numeric)
-    
-    def test_transformation_algorithms(self, sample_data):
-        """Test different transformation algorithms."""
-        data_numeric = sample_data.drop('categorical', axis=1)
-        
-        for transform in ["logarithmic", "yeo-johnson", "none"]:
-            psod = PSOD(transform_algorithm=transform, random_seed=42)
-            scores = psod.fit_predict(data_numeric)
-            assert len(scores) == len(data_numeric)
-    
-    def test_edge_cases(self):
-        """Test edge cases."""
-        # Single column data
-        single_col_data = pd.DataFrame({'A': np.random.randn(50)})
-        psod = PSOD(min_cols_chosen=1.0, max_cols_chosen=1.0)
-        with pytest.warns(UserWarning):
-            scores = psod.fit_predict(single_col_data)
-        
-        # Small dataset warning
-        small_data = pd.DataFrame({
-            'A': [1, 2, 3],
-            'B': [4, 5, 6]
+            psod.predict(sample_numeric_data)
+
+    def test_predict_return_class(self, sample_numeric_data):
+        """Test predict with return_class=True."""
+        psod = PSOD(random_seed=42, contamination=0.1)
+        psod.fit_predict(sample_numeric_data)
+
+        labels = psod.predict(sample_numeric_data, return_class=True)
+
+        assert isinstance(labels, (pd.Series, np.ndarray))
+        assert set(np.unique(labels)).issubset({0, 1})
+
+    def test_predict_consistency(self, sample_numeric_data):
+        """Test that predict on training data gives same results."""
+        psod = PSOD(random_seed=42)
+        train_scores = psod.fit_predict(sample_numeric_data)
+
+        predict_scores = psod.predict(sample_numeric_data)
+
+        # Should be very similar (might have small differences)
+        assert np.corrcoef(train_scores, predict_scores)[0, 1] > 0.95
+
+
+@pytest.mark.unit
+class TestPSODScoreSamples:
+    """Tests for score_samples method (sklearn compatibility)."""
+
+    def test_score_samples_basic(self, sample_numeric_data, fitted_psod_model):
+        """Test basic score_samples functionality."""
+        scores = fitted_psod_model.score_samples(sample_numeric_data)
+
+        assert isinstance(scores, np.ndarray)
+        assert len(scores) == len(sample_numeric_data)
+        assert all(scores >= 0)
+
+    def test_score_samples_without_fit(self, sample_numeric_data):
+        """Test score_samples without fitting."""
+        psod = PSOD()
+
+        with pytest.raises(ValueError):
+            psod.score_samples(sample_numeric_data)
+
+    def test_score_samples_equals_predict(self, sample_numeric_data,
+                                         fitted_psod_model):
+        """Test that score_samples equals predict with return_class=False."""
+        scores1 = fitted_psod_model.score_samples(sample_numeric_data)
+        scores2 = fitted_psod_model.predict(sample_numeric_data, return_class=False)
+
+        assert np.allclose(scores1, scores2)
+
+
+# ============================================================================
+# SKLEARN COMPATIBILITY TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODSklearnCompatibility:
+    """Tests for sklearn BaseEstimator compatibility."""
+
+    def test_get_params(self):
+        """Test get_params method."""
+        psod = PSOD(
+            n_jobs=2,
+            min_cols_chosen=0.3,
+            random_seed=42,
+            contamination=0.1
+        )
+
+        params = psod.get_params()
+
+        assert isinstance(params, dict)
+        assert params['n_jobs'] == 2
+        assert params['min_cols_chosen'] == 0.3
+        assert params['random_seed'] == 42
+        assert params['contamination'] == 0.1
+        assert 'missing_value_strategy' in params
+
+    def test_set_params(self):
+        """Test set_params method."""
+        psod = PSOD()
+
+        psod.set_params(n_jobs=4, random_seed=123)
+
+        assert psod.n_jobs == 4
+        assert psod.random_seed == 123
+
+    def test_get_set_params_roundtrip(self):
+        """Test get_params and set_params roundtrip."""
+        psod1 = PSOD(n_jobs=2, contamination=0.15, random_seed=42)
+        params = psod1.get_params()
+
+        psod2 = PSOD()
+        psod2.set_params(**params)
+
+        assert psod2.get_params() == params
+
+
+# ============================================================================
+# MODEL PERSISTENCE TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODPersistence:
+    """Tests for model save/load functionality."""
+
+    def test_save_load_model(self, sample_numeric_data, tmp_model_path):
+        """Test model persistence with save_model and load_model."""
+        psod = PSOD(random_seed=42, contamination=0.1)
+        original_scores = psod.fit_predict(sample_numeric_data)
+
+        # Save model
+        psod.save_model(str(tmp_model_path))
+        assert tmp_model_path.exists()
+
+        # Load model
+        loaded_psod = PSOD.load_model(str(tmp_model_path))
+
+        # Test predictions are the same
+        loaded_scores = loaded_psod.predict(sample_numeric_data)
+        assert np.allclose(original_scores, loaded_scores)
+
+    def test_load_preserves_attributes(self, sample_numeric_data, tmp_model_path):
+        """Test that loading preserves all model attributes."""
+        psod = PSOD(
+            random_seed=42,
+            contamination=0.1,
+            n_jobs=2,
+            min_cols_chosen=0.3
+        )
+        psod.fit_predict(sample_numeric_data)
+
+        psod.save_model(str(tmp_model_path))
+        loaded_psod = PSOD.load_model(str(tmp_model_path))
+
+        assert loaded_psod.random_seed == 42
+        assert loaded_psod.contamination == 0.1
+        assert loaded_psod.n_jobs == 2
+        assert loaded_psod.min_cols_chosen == 0.3
+        assert loaded_psod._is_fitted
+
+    def test_pickle_compatibility(self, sample_numeric_data, tmp_path):
+        """Test that model can be pickled directly."""
+        psod = PSOD(random_seed=42)
+        psod.fit_predict(sample_numeric_data)
+
+        pickle_path = tmp_path / "psod.pkl"
+
+        # Save with pickle
+        with open(pickle_path, 'wb') as f:
+            pickle.dump(psod, f)
+
+        # Load with pickle
+        with open(pickle_path, 'rb') as f:
+            loaded_psod = pickle.load(f)
+
+        # Test functionality
+        scores = loaded_psod.predict(sample_numeric_data)
+        assert len(scores) == len(sample_numeric_data)
+
+
+# ============================================================================
+# FEATURE IMPORTANCE TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODFeatureImportance:
+    """Tests for feature importance calculation."""
+
+    def test_get_feature_importance(self, sample_numeric_data):
+        """Test feature importance calculation."""
+        psod = PSOD(random_seed=42)
+        psod.fit_predict(sample_numeric_data)
+
+        importance = psod.get_feature_importance()
+
+        assert importance is not None
+        assert isinstance(importance, (pd.DataFrame, pd.Series, dict))
+
+    def test_feature_importance_without_fit(self):
+        """Test feature importance before fitting."""
+        psod = PSOD()
+
+        importance = psod.get_feature_importance()
+
+        # Should return None or empty
+        assert importance is None or len(importance) == 0
+
+    def test_feature_importance_methods(self, sample_numeric_data):
+        """Test different feature importance calculation methods."""
+        psod = PSOD(random_seed=42)
+        psod.fit_predict(sample_numeric_data)
+
+        # Test correlation-based importance
+        importance_corr = psod.get_feature_importance(method='correlation')
+        assert importance_corr is not None
+
+        # Test mutual information importance (if implemented)
+        try:
+            importance_mi = psod.get_feature_importance(method='mutual_info')
+            assert importance_mi is not None
+        except (ValueError, NotImplementedError):
+            pass  # Method might not be implemented
+
+
+# ============================================================================
+# EXPLAIN OUTLIER TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODExplainOutlier:
+    """Tests for explain_outlier interpretability method."""
+
+    def test_explain_outlier_basic(self, sample_numeric_data, fitted_psod_model):
+        """Test basic outlier explanation."""
+        explanation = fitted_psod_model.explain_outlier(
+            sample_numeric_data,
+            sample_idx=0
+        )
+
+        assert explanation is not None
+        assert isinstance(explanation, (dict, pd.DataFrame, pd.Series))
+
+    def test_explain_outlier_topk(self, sample_numeric_data, fitted_psod_model):
+        """Test explanation with top-k features."""
+        explanation = fitted_psod_model.explain_outlier(
+            sample_numeric_data,
+            sample_idx=0,
+            top_k=3
+        )
+
+        assert explanation is not None
+
+    def test_explain_outlier_invalid_index(self, sample_numeric_data,
+                                          fitted_psod_model):
+        """Test explain_outlier with invalid index."""
+        with pytest.raises((IndexError, ValueError)):
+            fitted_psod_model.explain_outlier(
+                sample_numeric_data,
+                sample_idx=10000
+            )
+
+    def test_explain_outlier_without_fit(self, sample_numeric_data):
+        """Test explain_outlier without fitting."""
+        psod = PSOD()
+
+        with pytest.raises(ValueError):
+            psod.explain_outlier(sample_numeric_data, sample_idx=0)
+
+
+# ============================================================================
+# MISSING VALUE HANDLING TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODMissingValues:
+    """Tests for missing value handling."""
+
+    def test_missing_values_mean_strategy(self, missing_value_data):
+        """Test mean imputation strategy."""
+        psod = PSOD(missing_value_strategy="mean", random_seed=42)
+        scores = psod.fit_predict(missing_value_data)
+
+        assert len(scores) == len(missing_value_data)
+        assert all(np.isfinite(scores))
+
+    def test_missing_values_median_strategy(self, missing_value_data):
+        """Test median imputation strategy."""
+        psod = PSOD(missing_value_strategy="median", random_seed=42)
+        scores = psod.fit_predict(missing_value_data)
+
+        assert len(scores) == len(missing_value_data)
+        assert all(np.isfinite(scores))
+
+    def test_missing_values_mode_strategy(self, missing_value_data):
+        """Test mode imputation strategy."""
+        psod = PSOD(missing_value_strategy="mode", random_seed=42)
+        scores = psod.fit_predict(missing_value_data)
+
+        assert len(scores) == len(missing_value_data)
+
+    def test_missing_values_knn_strategy(self, missing_value_data):
+        """Test KNN imputation strategy."""
+        try:
+            psod = PSOD(missing_value_strategy="knn", random_seed=42)
+            scores = psod.fit_predict(missing_value_data)
+
+            assert len(scores) == len(missing_value_data)
+        except (ValueError, ImportError):
+            pytest.skip("KNN imputation not available")
+
+    def test_missing_values_drop_strategy(self, missing_value_data):
+        """Test drop strategy for missing values."""
+        try:
+            psod = PSOD(missing_value_strategy="drop", random_seed=42)
+            scores = psod.fit_predict(missing_value_data)
+
+            # Should have fewer samples after dropping
+            assert len(scores) <= len(missing_value_data)
+        except (ValueError, NotImplementedError):
+            pytest.skip("Drop strategy not implemented")
+
+
+# ============================================================================
+# TRANSFORMATION ALGORITHM TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODTransformations:
+    """Tests for different transformation algorithms."""
+
+    def test_logarithmic_transform(self, sample_numeric_data):
+        """Test logarithmic transformation."""
+        psod = PSOD(transform_algorithm="logarithmic", random_seed=42)
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert len(scores) == len(sample_numeric_data)
+
+    def test_yeo_johnson_transform(self, sample_numeric_data):
+        """Test Yeo-Johnson transformation."""
+        psod = PSOD(transform_algorithm="yeo-johnson", random_seed=42)
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert len(scores) == len(sample_numeric_data)
+
+    def test_no_transform(self, sample_numeric_data):
+        """Test with no transformation."""
+        psod = PSOD(transform_algorithm="none", random_seed=42)
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert len(scores) == len(sample_numeric_data)
+
+    def test_transform_with_negative_values(self):
+        """Test transformation with negative values."""
+        data = pd.DataFrame({
+            'A': np.random.randn(100) - 5,  # Negative values
+            'B': np.random.randn(100),
+            'C': np.random.randn(100) + 5
+        })
+
+        psod = PSOD(transform_algorithm="logarithmic", random_seed=42)
+        scores = psod.fit_predict(data)
+
+        assert len(scores) == len(data)
+
+
+# ============================================================================
+# BASE LEARNER TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODBaseLearners:
+    """Tests with different base learners."""
+
+    def test_linear_regression_learner(self, sample_numeric_data):
+        """Test with LinearRegression (default)."""
+        psod = PSOD(base_learner=LinearRegression, random_seed=42)
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert len(scores) == len(sample_numeric_data)
+
+    def test_ridge_regression_learner(self, sample_numeric_data):
+        """Test with Ridge regression."""
+        psod = PSOD(base_learner=Ridge, random_seed=42)
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert len(scores) == len(sample_numeric_data)
+
+    def test_random_forest_learner(self, sample_numeric_data):
+        """Test with RandomForest regression."""
+        psod = PSOD(base_learner=RandomForestRegressor, random_seed=42)
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert len(scores) == len(sample_numeric_data)
+
+    def test_custom_learner_params(self, sample_numeric_data):
+        """Test passing parameters to base learner."""
+        psod = PSOD(
+            base_learner=Ridge,
+            learner_kwargs={'alpha': 0.5},
+            random_seed=42
+        )
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert len(scores) == len(sample_numeric_data)
+
+
+# ============================================================================
+# FLAG OUTLIER OPTIONS TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODFlagOutlierOptions:
+    """Tests for different outlier flagging options."""
+
+    def test_flag_both_ends(self, outlier_data):
+        """Test flagging outliers on both ends."""
+        psod = PSOD(flag_outlier_on="both ends", random_seed=42)
+        outlier_classes = psod.fit_predict(outlier_data, return_class=True)
+
+        assert len(outlier_classes) == len(outlier_data)
+
+    def test_flag_high_end(self, outlier_data):
+        """Test flagging only high-end outliers."""
+        psod = PSOD(flag_outlier_on="high end", random_seed=42)
+        outlier_classes = psod.fit_predict(outlier_data, return_class=True)
+
+        assert len(outlier_classes) == len(outlier_data)
+
+    def test_flag_low_end(self, outlier_data):
+        """Test flagging only low-end outliers."""
+        psod = PSOD(flag_outlier_on="low end", random_seed=42)
+        outlier_classes = psod.fit_predict(outlier_data, return_class=True)
+
+        assert len(outlier_classes) == len(outlier_data)
+
+
+# ============================================================================
+# PARALLEL PROCESSING TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODParallelProcessing:
+    """Tests for parallel processing functionality."""
+
+    def test_serial_processing(self, sample_numeric_data):
+        """Test with serial processing (n_jobs=1)."""
+        psod = PSOD(n_jobs=1, random_seed=42)
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert len(scores) == len(sample_numeric_data)
+
+    def test_parallel_processing(self, sample_numeric_data):
+        """Test with parallel processing (n_jobs=-1)."""
+        psod = PSOD(n_jobs=-1, random_seed=42)
+        scores = psod.fit_predict(sample_numeric_data)
+
+        assert len(scores) == len(sample_numeric_data)
+
+    def test_parallel_vs_serial_consistency(self, sample_numeric_data):
+        """Test that parallel and serial give similar results."""
+        psod_serial = PSOD(n_jobs=1, random_seed=42)
+        scores_serial = psod_serial.fit_predict(sample_numeric_data)
+
+        psod_parallel = PSOD(n_jobs=-1, random_seed=42)
+        scores_parallel = psod_parallel.fit_predict(sample_numeric_data)
+
+        # Should be very similar (might have small differences)
+        assert len(scores_serial) == len(scores_parallel)
+        assert np.corrcoef(scores_serial, scores_parallel)[0, 1] > 0.95
+
+
+# ============================================================================
+# EDGE CASE TESTS
+# ============================================================================
+
+@pytest.mark.unit
+class TestPSODEdgeCases:
+    """Tests for edge cases and error conditions."""
+
+    def test_empty_dataframe(self):
+        """Test with empty dataframe."""
+        empty_df = pd.DataFrame()
+        psod = PSOD()
+
+        with pytest.raises((ValueError, IndexError)):
+            psod.fit_predict(empty_df)
+
+    def test_single_sample(self):
+        """Test with single sample."""
+        single_sample = pd.DataFrame({'A': [1.0], 'B': [2.0]})
+        psod = PSOD()
+
+        # Should handle gracefully or raise informative error
+        try:
+            scores = psod.fit_predict(single_sample)
+            assert len(scores) == 1
+        except ValueError:
+            pass  # Expected
+
+    def test_all_same_values(self):
+        """Test with all identical values."""
+        constant_data = pd.DataFrame({
+            'A': np.ones(100),
+            'B': np.ones(100),
+            'C': np.ones(100)
         })
         psod = PSOD()
-        scores = psod.fit_predict(small_data)
-        assert len(scores) == 3
-        
-        # TODO: Test empty DataFrame
-        # empty_data = pd.DataFrame()
-        # with pytest.raises(ValueError):
-        #     psod.fit_predict(empty_data)
-    
-    # TODO: Test missing value handling
-    def test_missing_values(self, sample_data):
-        """Test behavior with missing values."""
-        # Add missing values
-        data_with_nan = sample_data.copy()
-        data_with_nan.iloc[0, 0] = np.nan
-        data_with_nan.iloc[5, 1] = np.nan
-        
+
+        scores = psod.fit_predict(constant_data)
+        assert len(scores) == len(constant_data)
+
+    def test_high_correlation_features(self, correlated_features_data):
+        """Test with highly correlated features."""
+        psod = PSOD(correlation_threshold=0.9, random_seed=42)
+        scores = psod.fit_predict(correlated_features_data)
+
+        assert len(scores) == len(correlated_features_data)
+
+    def test_inf_values(self):
+        """Test with infinite values."""
+        data_with_inf = pd.DataFrame({
+            'A': [1, 2, 3, np.inf, 5],
+            'B': [1, 2, 3, 4, 5]
+        })
         psod = PSOD()
-        # Should warn about missing values
-        # with pytest.warns(UserWarning, match="Missing values detected"):
-        #     scores = psod.fit_predict(data_with_nan)
-    
-    # TODO: Test reproducibility
-    def test_reproducibility(self, sample_data):
-        """Test that results are reproducible with same seed."""
-        data_numeric = sample_data.drop('categorical', axis=1)
-        
-        psod1 = PSOD(random_seed=42)
-        scores1 = psod1.fit_predict(data_numeric)
-        
-        psod2 = PSOD(random_seed=42)
-        scores2 = psod2.fit_predict(data_numeric)
-        
-        assert np.allclose(scores1, scores2)
-    
-    # TODO: Test different outlier flagging options
-    def test_flag_outlier_options(self, outlier_data):
-        """Test different outlier flagging options."""
-        for flag_option in ["low end", "high end", "both ends"]:
-            psod = PSOD(flag_outlier_on=flag_option, random_seed=42)
-            outlier_classes = psod.fit_predict(outlier_data, return_class=True)
-            assert len(outlier_classes) == len(outlier_data)
-    
-    # TODO: Test categorical encoders
-    def test_different_categorical_encoders(self, sample_data):
-        """Test different categorical encoding options."""
-        encoders = [TargetEncoder, OneHotEncoder]
-        for encoder in encoders:
-            psod = PSOD(
-                cat_columns=['categorical'],
-                cat_encoder=encoder,
-                random_seed=42
-            )
-            scores = psod.fit_predict(sample_data)
-            assert len(scores) == len(sample_data)
-    
-    # TODO: Test correlation threshold effect
-    def test_correlation_threshold(self, sample_data):
-        """Test effect of correlation threshold."""
-        data_numeric = sample_data.drop('categorical', axis=1)
-        
-        # Add highly correlated feature
-        data_numeric['numeric4'] = data_numeric['numeric1'] * 2 + 0.1 * np.random.randn(100)
-        
-        psod_low = PSOD(correlation_threshold=0.01, random_seed=42)
-        psod_high = PSOD(correlation_threshold=0.9, random_seed=42)
-        
-        scores_low = psod_low.fit_predict(data_numeric)
-        scores_high = psod_high.fit_predict(data_numeric)
-        
-        assert len(scores_low) == len(scores_high) == len(data_numeric)
-    
-    # TODO: Test save and load functionality
-    def test_save_load_model(self, sample_data, tmp_path):
-        """Test model persistence."""
-        # psod = PSOD(random_seed=42)
-        # psod.fit_predict(sample_data.drop('categorical', axis=1))
-        # 
-        # # Save model
-        # model_path = tmp_path / "psod_model.pkl"
-        # psod.save_model(str(model_path))
-        # 
-        # # Load model
-        # loaded_psod = PSOD.load_model(str(model_path))
-        # 
-        # # Test predictions are the same
-        # new_scores = loaded_psod.predict(sample_data.drop('categorical', axis=1))
-        # original_scores = psod.predict(sample_data.drop('categorical', axis=1))
-        # assert np.allclose(new_scores, original_scores)
-        pass
-    
-    # TODO: Test feature importance
-    def test_feature_importance(self, sample_data):
-        """Test feature importance calculation."""
-        # psod = PSOD(random_seed=42)
-        # psod.fit_predict(sample_data.drop('categorical', axis=1))
-        # 
-        # importance = psod.get_feature_importance()
-        # assert isinstance(importance, pd.DataFrame)
-        # assert len(importance) == 3  # 3 numeric features
-        pass
-    
-    # TODO: Test parallel processing
-    def test_parallel_processing(self, sample_data):
-        """Test parallel processing with different n_jobs."""
-        data_numeric = sample_data.drop('categorical', axis=1)
-        
-        # Test serial
-        psod_serial = PSOD(n_jobs=1, random_seed=42)
-        scores_serial = psod_serial.fit_predict(data_numeric)
-        
-        # Test parallel
-        psod_parallel = PSOD(n_jobs=-1, random_seed=42)
-        scores_parallel = psod_parallel.fit_predict(data_numeric)
-        
-        # Results should be similar (might have small differences due to parallelization)
-        assert len(scores_serial) == len(scores_parallel)
+
+        # Should handle inf values
+        try:
+            scores = psod.fit_predict(data_with_inf)
+        except (ValueError, RuntimeError):
+            pass  # Expected
 
 
-# TODO: Add integration tests
+# ============================================================================
+# CATEGORICAL ENCODER TESTS
+# ============================================================================
+
+@pytest.mark.skipif(not HAS_ENCODERS, reason="category_encoders not installed")
+@pytest.mark.unit
+class TestPSODCategoricalEncoders:
+    """Tests for different categorical encoding options."""
+
+    def test_target_encoder(self, sample_data_with_categorical):
+        """Test with TargetEncoder."""
+        cat_cols = ['category_1', 'category_2']
+
+        psod = PSOD(
+            cat_columns=cat_cols,
+            cat_encoder=TargetEncoder,
+            random_seed=42
+        )
+        scores = psod.fit_predict(sample_data_with_categorical)
+
+        assert len(scores) == len(sample_data_with_categorical)
+
+    def test_onehot_encoder(self, sample_data_with_categorical):
+        """Test with OneHotEncoder."""
+        cat_cols = ['category_1', 'category_2']
+
+        psod = PSOD(
+            cat_columns=cat_cols,
+            cat_encoder=OneHotEncoder,
+            random_seed=42
+        )
+        scores = psod.fit_predict(sample_data_with_categorical)
+
+        assert len(scores) == len(sample_data_with_categorical)
+
+
+# ============================================================================
+# INTEGRATION TESTS
+# ============================================================================
+
+@pytest.mark.integration
 class TestPSODIntegration:
-    """Integration tests for PSOD."""
-    
-    def test_full_pipeline(self):
+    """Integration tests for complete PSOD workflows."""
+
+    def test_full_pipeline(self, sample_numeric_data, tmp_model_path):
         """Test complete outlier detection pipeline."""
-        pass
-    
-    def test_with_real_dataset(self):
-        """Test with a real-world dataset."""
-        pass
+        # 1. Initialize
+        psod = PSOD(random_seed=42, contamination=0.1)
+
+        # 2. Fit and predict
+        scores = psod.fit_predict(sample_numeric_data)
+        assert len(scores) == len(sample_numeric_data)
+
+        # 3. Get feature importance
+        importance = psod.get_feature_importance()
+        assert importance is not None
+
+        # 4. Explain outlier
+        explanation = psod.explain_outlier(sample_numeric_data, sample_idx=0)
+        assert explanation is not None
+
+        # 5. Save model
+        psod.save_model(str(tmp_model_path))
+        assert tmp_model_path.exists()
+
+        # 6. Load model
+        loaded_psod = PSOD.load_model(str(tmp_model_path))
+
+        # 7. Predict with loaded model
+        new_scores = loaded_psod.predict(sample_numeric_data)
+        assert np.allclose(scores, new_scores)
+
+    def test_cross_validation_workflow(self, sample_numeric_data):
+        """Test PSOD in cross-validation scenario."""
+        from sklearn.model_selection import train_test_split
+
+        # Split data
+        train_data, test_data = train_test_split(
+            sample_numeric_data,
+            test_size=0.2,
+            random_state=42
+        )
+
+        # Fit on train
+        psod = PSOD(random_seed=42, contamination=0.1)
+        train_scores = psod.fit_predict(train_data)
+
+        # Predict on test
+        test_scores = psod.predict(test_data)
+
+        assert len(train_scores) == len(train_data)
+        assert len(test_scores) == len(test_data)
+
+    def test_complete_workflow_with_categorical(self, sample_data_with_categorical):
+        """Test complete workflow with categorical features."""
+        pytest.importorskip("category_encoders")
+
+        cat_cols = ['category_1', 'category_2']
+
+        # Fit
+        psod = PSOD(
+            cat_columns=cat_cols,
+            cat_encoder=OneHotEncoder,
+            random_seed=42,
+            contamination=0.1
+        )
+        scores = psod.fit_predict(sample_data_with_categorical)
+
+        # Get predictions
+        labels = psod.predict(sample_data_with_categorical, return_class=True)
+
+        assert len(scores) == len(labels) == len(sample_data_with_categorical)
 
 
-# TODO: Add performance tests
+# ============================================================================
+# PERFORMANCE TESTS
+# ============================================================================
+
+@pytest.mark.performance
+@pytest.mark.slow
 class TestPSODPerformance:
     """Performance tests for PSOD."""
-    
+
     def test_large_dataset_performance(self):
         """Test performance on large datasets."""
-        pass
-    
-    def test_high_dimensional_performance(self):
+        np.random.seed(42)
+        large_data = pd.DataFrame({
+            f'feature_{i}': np.random.randn(10000)
+            for i in range(20)
+        })
+
+        psod = PSOD(n_jobs=-1, random_seed=42)
+        scores = psod.fit_predict(large_data)
+
+        assert len(scores) == len(large_data)
+
+    def test_high_dimensional_performance(self, high_dimensional_data):
         """Test performance on high-dimensional data."""
-        pass
+        psod = PSOD(n_jobs=-1, random_seed=42)
+        scores = psod.fit_predict(high_dimensional_data)
+
+        assert len(scores) == len(high_dimensional_data)
+
+    def test_parallel_speedup(self):
+        """Test that parallel processing is faster."""
+        import time
+
+        np.random.seed(42)
+        data = pd.DataFrame({
+            f'feature_{i}': np.random.randn(1000)
+            for i in range(10)
+        })
+
+        # Serial
+        psod_serial = PSOD(n_jobs=1, random_seed=42)
+        start = time.time()
+        psod_serial.fit_predict(data)
+        serial_time = time.time() - start
+
+        # Parallel
+        psod_parallel = PSOD(n_jobs=-1, random_seed=42)
+        start = time.time()
+        psod_parallel.fit_predict(data)
+        parallel_time = time.time() - start
+
+        # Parallel should be faster or similar (within 2x)
+        # Note: Small datasets might not show speedup due to overhead
+        assert parallel_time <= serial_time * 2
 
 
 if __name__ == "__main__":

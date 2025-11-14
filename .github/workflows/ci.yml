@@ -1,0 +1,394 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort flake8 pylint mypy bandit safety
+          pip install -e ".[dev]"
+
+      - name: Check code formatting with Black
+        run: |
+          black --check --diff src/ tests/ examples/ benchmarks/
+        continue-on-error: false
+
+      - name: Check import sorting with isort
+        run: |
+          isort --check-only --diff src/ tests/ examples/ benchmarks/
+        continue-on-error: false
+
+      - name: Lint with flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        continue-on-error: false
+
+      - name: Lint with pylint
+        run: |
+          pylint src/psod/ --fail-under=8.0 --disable=C0114,C0115,C0116
+        continue-on-error: true
+
+      - name: Type check with mypy
+        run: |
+          mypy src/psod/ --ignore-missing-imports --check-untyped-defs
+        continue-on-error: true
+
+      - name: Security check with bandit
+        run: |
+          bandit -r src/psod/ -ll -f json -o bandit-report.json
+          bandit -r src/psod/ -ll
+        continue-on-error: true
+
+      - name: Upload bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  dependency-security:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety pip-audit
+
+      - name: Check dependencies with safety
+        run: |
+          safety check --json --output safety-report.json
+          safety check
+        continue-on-error: true
+
+      - name: Check dependencies with pip-audit
+        run: |
+          pip-audit --desc --format json --output pip-audit-report.json
+          pip-audit --desc
+        continue-on-error: true
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-security-reports
+          path: |
+            safety-report.json
+            pip-audit-report.json
+
+  test:
+    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        exclude:
+          # Exclude some combinations to reduce CI time
+          - os: macos-latest
+            python-version: '3.8'
+          - os: macos-latest
+            python-version: '3.9'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pytest-xdist pytest-timeout
+          pip install -e ".[dev,test]"
+
+      - name: Display package versions
+        run: |
+          python --version
+          pip list
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ \
+            --cov=src/psod \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term-missing \
+            --junitxml=junit-${{ matrix.os }}-${{ matrix.python-version }}.xml \
+            --verbose \
+            -n auto \
+            --timeout=300
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
+          path: |
+            junit-*.xml
+            htmlcov/
+            coverage.xml
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+          pip install -e ".[dev,test]"
+
+      - name: Run integration tests
+        run: |
+          pytest tests/test_integration.py -v --tb=short
+
+  examples-test:
+    name: Test Examples
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+          pip install matplotlib seaborn statsmodels xgboost
+
+      - name: Test basic_usage.py
+        run: |
+          cd examples
+          python basic_usage.py
+        continue-on-error: true
+
+      - name: Test CLI examples
+        run: |
+          cd examples
+          # Create test data
+          python -c "
+          import pandas as pd
+          import numpy as np
+          np.random.seed(42)
+          df = pd.DataFrame(np.random.randn(100, 5), columns=['a','b','c','d','e'])
+          df.to_csv('test_data.csv', index=False)
+          "
+          # Test CLI
+          python cli_examples.py detect --input test_data.csv --output results.csv
+          python cli_examples.py report --input test_data.csv --output report.html
+        continue-on-error: true
+
+  build-package:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: [code-quality, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine wheel setuptools
+
+      - name: Build package
+        run: |
+          python -m build
+
+      - name: Check package with twine
+        run: |
+          twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-distributions
+          path: dist/
+
+  test-installation:
+    name: Test Package Installation
+    runs-on: ${{ matrix.os }}
+    needs: [build-package]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.11', '3.12']
+
+    steps:
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: package-distributions
+          path: dist/
+
+      - name: Install package from wheel
+        run: |
+          python -m pip install --upgrade pip
+          pip install dist/*.whl
+
+      - name: Test import
+        run: |
+          python -c "from psod import PSOD; print('Import successful')"
+          python -c "from psod import save_model, load_model; print('Utils import successful')"
+          python -c "from psod.visualization import plot_outlier_scores; print('Visualization import successful')"
+
+      - name: Test basic functionality
+        run: |
+          python -c "
+          import pandas as pd
+          import numpy as np
+          from psod import PSOD
+
+          # Create test data
+          np.random.seed(42)
+          df = pd.DataFrame(np.random.randn(100, 5))
+
+          # Test PSOD
+          detector = PSOD(random_seed=42)
+          scores = detector.fit_predict(df, return_class=False)
+          labels = detector.fit_predict(df, return_class=True)
+
+          print(f'Scores shape: {scores.shape}')
+          print(f'Labels shape: {labels.shape}')
+          print(f'Outliers detected: {sum(labels)}')
+          print('Basic functionality test passed!')
+          "
+
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov coverage
+          pip install -e ".[dev,test]"
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ \
+            --cov=src/psod \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term
+
+      - name: Generate coverage badge
+        run: |
+          coverage report --format=markdown > coverage-report.md
+          echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+          cat coverage-report.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            htmlcov/
+            coverage-report.md
+
+  all-checks-pass:
+    name: All CI Checks Passed
+    runs-on: ubuntu-latest
+    needs:
+      - code-quality
+      - dependency-security
+      - test
+      - integration-tests
+      - examples-test
+      - build-package
+      - test-installation
+      - coverage-report
+    steps:
+      - name: Success
+        run: |
+          echo "✅ All CI checks passed successfully!"
+          echo "## CI Status: ✅ PASSED" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All quality checks, tests, and builds completed successfully." >> $GITHUB_STEP_SUMMARY
