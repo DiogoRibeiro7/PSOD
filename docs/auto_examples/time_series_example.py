@@ -1,0 +1,510 @@
+"""
+Time series outlier detection examples using PSOD.
+
+This module demonstrates:
+- Temporal feature engineering
+- Sliding window approach
+- Trend and seasonality handling
+- Real-time anomaly detection
+- Time series visualization
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+import warnings
+
+warnings.filterwarnings("ignore")
+
+# For development, add parent directory to path
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from psod import PSOD, evaluate_outlier_detection
+from psod.visualization import plot_timeseries_outliers, plot_outlier_scores
+
+
+def generate_time_series_data(n_samples=500, freq="H", n_outliers=20, seed=42):
+    """Generate synthetic time series data with anomalies."""
+    np.random.seed(seed)
+
+    # Generate timestamps
+    start_date = datetime(2024, 1, 1)
+    timestamps = pd.date_range(start=start_date, periods=n_samples, freq=freq)
+
+    # Generate trend
+    trend = np.linspace(10, 30, n_samples)
+
+    # Generate seasonality (daily pattern)
+    hours = np.array([t.hour for t in timestamps])
+    seasonality = 5 * np.sin(2 * np.pi * hours / 24)
+
+    # Generate noise
+    noise = np.random.randn(n_samples) * 0.5
+
+    # Combine components
+    values = trend + seasonality + noise
+
+    # Add anomalies
+    outlier_indices = np.random.choice(n_samples, n_outliers, replace=False)
+    outlier_types = np.random.choice(["spike", "dip", "shift"], n_outliers)
+
+    y_true = np.zeros(n_samples)
+
+    for idx, outlier_type in zip(outlier_indices, outlier_types):
+        y_true[idx] = 1
+        if outlier_type == "spike":
+            values[idx] += np.random.uniform(10, 20)
+        elif outlier_type == "dip":
+            values[idx] -= np.random.uniform(10, 20)
+        elif outlier_type == "shift":
+            # Level shift for next few points
+            shift_length = min(5, n_samples - idx)
+            values[idx : idx + shift_length] += np.random.uniform(5, 10)
+            y_true[idx : idx + shift_length] = 1
+
+    df = pd.DataFrame({"timestamp": timestamps, "value": values})
+
+    return df, y_true
+
+
+def create_temporal_features(df, timestamp_col="timestamp", value_col="value"):
+    """Create temporal features for time series."""
+    df = df.copy()
+
+    # Extract time-based features
+    df["hour"] = df[timestamp_col].dt.hour
+    df["day_of_week"] = df[timestamp_col].dt.dayofweek
+    df["day_of_month"] = df[timestamp_col].dt.day
+    df["month"] = df[timestamp_col].dt.month
+
+    # Cyclic encoding for periodic features
+    df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
+    df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
+    df["dow_sin"] = np.sin(2 * np.pi * df["day_of_week"] / 7)
+    df["dow_cos"] = np.cos(2 * np.pi * df["day_of_week"] / 7)
+
+    # Lag features
+    for lag in [1, 2, 3, 6, 12, 24]:
+        df[f"lag_{lag}"] = df[value_col].shift(lag)
+
+    # Rolling statistics
+    for window in [3, 6, 12, 24]:
+        df[f"rolling_mean_{window}"] = df[value_col].rolling(window=window).mean()
+        df[f"rolling_std_{window}"] = df[value_col].rolling(window=window).std()
+        df[f"rolling_min_{window}"] = df[value_col].rolling(window=window).min()
+        df[f"rolling_max_{window}"] = df[value_col].rolling(window=window).max()
+
+    # Difference features
+    df["diff_1"] = df[value_col].diff(1)
+    df["diff_24"] = df[value_col].diff(24)
+
+    # Fill NaN values created by lag/rolling features
+    df = df.fillna(method="bfill").fillna(method="ffill")
+
+    return df
+
+
+def basic_time_series_example():
+    """Basic time series outlier detection example."""
+    print("=== Basic Time Series Example ===\n")
+
+    # Generate data
+    df, y_true = generate_time_series_data(n_samples=500, freq="H", n_outliers=20)
+
+    print(f"Dataset shape: {df.shape}")
+    print(f"Time range: {df['timestamp'].min()} to {df['timestamp'].max()}")
+    print(f"True outliers: {sum(y_true)}\n")
+
+    # Create temporal features
+    print("Creating temporal features...")
+    df_features = create_temporal_features(df)
+
+    # Select features for detection (exclude timestamp)
+    feature_cols = [col for col in df_features.columns if col not in ["timestamp"]]
+    X = df_features[feature_cols]
+
+    print(f"Feature count: {len(feature_cols)}")
+    print(f"Features: {feature_cols[:10]}...\n")
+
+    # Detect outliers
+    print("Detecting outliers...")
+    detector = PSOD(
+        min_cols_chosen=0.5,
+        max_cols_chosen=1.0,
+        stdevs_to_outlier=2.5,
+        transform_algorithm="yeo-johnson",
+        random_seed=42,
+    )
+
+    scores = detector.fit_predict(X, return_class=False)
+    labels = detector.fit_predict(X, return_class=True)
+
+    print(f"Detected outliers: {sum(labels)}\n")
+
+    # Evaluate
+    metrics = evaluate_outlier_detection(y_true, labels, scores)
+    print("Performance Metrics:")
+    print(f"  Precision: {metrics['precision']:.3f}")
+    print(f"  Recall: {metrics['recall']:.3f}")
+    print(f"  F1-Score: {metrics['f1']:.3f}")
+    print(f"  ROC-AUC: {metrics['roc_auc']:.3f}\n")
+
+    # Visualize
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10))
+
+    # Plot time series with outliers
+    plot_timeseries_outliers(
+        df["timestamp"].values,
+        df["value"].values,
+        labels,
+        scores,
+        ax=ax1,
+        title="Time Series with Detected Outliers",
+    )
+
+    # Plot outlier scores
+    plot_outlier_scores(scores, labels, ax=ax2, title="Outlier Score Distribution")
+
+    plt.tight_layout()
+    plt.savefig("timeseries_basic_detection.png", dpi=150, bbox_inches="tight")
+    print("Saved: timeseries_basic_detection.png\n")
+
+    return df, scores, labels, y_true
+
+
+def sliding_window_example():
+    """Example using sliding window approach for streaming data."""
+    print("=== Sliding Window Example ===\n")
+
+    # Generate data
+    df, y_true = generate_time_series_data(n_samples=1000, freq="H", n_outliers=30)
+
+    print(f"Dataset shape: {df.shape}")
+    print("Simulating streaming data with sliding window...\n")
+
+    # Parameters
+    window_size = 100
+    step_size = 50
+    min_train_size = 200
+
+    all_scores = []
+    all_labels = []
+    detected_outliers = []
+
+    # Simulate streaming
+    for start_idx in range(0, len(df) - window_size, step_size):
+        end_idx = start_idx + window_size
+        train_end = start_idx + min_train_size
+
+        # Training window
+        df_train = df.iloc[start_idx:train_end].copy()
+        df_train_features = create_temporal_features(df_train)
+        feature_cols = [col for col in df_train_features.columns if col not in ["timestamp"]]
+        X_train = df_train_features[feature_cols]
+
+        # Test window
+        df_test = df.iloc[train_end:end_idx].copy()
+        df_test_features = create_temporal_features(df_test)
+        X_test = df_test_features[feature_cols]
+
+        # Train and predict
+        detector = PSOD(
+            min_cols_chosen=0.5, max_cols_chosen=1.0, stdevs_to_outlier=2.5, random_seed=42
+        )
+
+        detector.fit(X_train)
+        scores = detector.predict(X_test, return_class=False)
+        labels = detector.predict(X_test, return_class=True)
+
+        all_scores.extend(scores)
+        all_labels.extend(labels)
+
+        # Track detected outliers
+        outlier_indices = df_test.index[labels == 1].tolist()
+        if outlier_indices:
+            detected_outliers.extend(outlier_indices)
+
+        print(f"Window {start_idx}-{end_idx}: Detected {sum(labels)} outliers")
+
+    print(f"\nTotal outliers detected across all windows: {len(detected_outliers)}")
+    print(f"Unique outlier points: {len(set(detected_outliers))}\n")
+
+    return all_scores, all_labels
+
+
+def seasonal_decomposition_example():
+    """Example with seasonal decomposition."""
+    print("=== Seasonal Decomposition Example ===\n")
+
+    # Generate data with strong seasonality
+    df, y_true = generate_time_series_data(n_samples=720, freq="H", n_outliers=30)  # 30 days
+
+    print(f"Dataset shape: {df.shape}")
+
+    try:
+        from statsmodels.tsa.seasonal import seasonal_decompose
+
+        print("Performing seasonal decomposition...")
+
+        # Perform decomposition
+        decomposition = seasonal_decompose(
+            df.set_index("timestamp")["value"], model="additive", period=24  # Daily seasonality
+        )
+
+        # Create features from decomposition
+        df_decomp = pd.DataFrame(
+            {
+                "timestamp": df["timestamp"],
+                "value": df["value"],
+                "trend": decomposition.trend,
+                "seasonal": decomposition.seasonal,
+                "residual": decomposition.resid,
+            }
+        )
+
+        # Remove NaN values
+        df_decomp = df_decomp.dropna()
+
+        # Add additional temporal features
+        df_features = create_temporal_features(df_decomp)
+
+        # Select features
+        feature_cols = [col for col in df_features.columns if col not in ["timestamp"]]
+        X = df_features[feature_cols]
+
+        # Detect outliers
+        print("Detecting outliers on decomposed features...")
+        detector = PSOD(
+            min_cols_chosen=0.5,
+            max_cols_chosen=1.0,
+            stdevs_to_outlier=2.5,
+            transform_algorithm="yeo-johnson",
+            random_seed=42,
+        )
+
+        scores = detector.fit_predict(X, return_class=False)
+        labels = detector.fit_predict(X, return_class=True)
+
+        print(f"Detected outliers: {sum(labels)}\n")
+
+        # Visualize decomposition
+        fig, axes = plt.subplots(5, 1, figsize=(15, 12))
+
+        # Original
+        axes[0].plot(df_decomp["timestamp"], df_decomp["value"], linewidth=1)
+        axes[0].set_ylabel("Original", fontsize=10)
+        axes[0].set_title("Seasonal Decomposition for Outlier Detection", fontsize=14)
+        axes[0].grid(True, alpha=0.3)
+
+        # Trend
+        axes[1].plot(df_decomp["timestamp"], df_decomp["trend"], linewidth=1, color="orange")
+        axes[1].set_ylabel("Trend", fontsize=10)
+        axes[1].grid(True, alpha=0.3)
+
+        # Seasonal
+        axes[2].plot(df_decomp["timestamp"], df_decomp["seasonal"], linewidth=1, color="green")
+        axes[2].set_ylabel("Seasonal", fontsize=10)
+        axes[2].grid(True, alpha=0.3)
+
+        # Residual
+        axes[3].plot(df_decomp["timestamp"], df_decomp["residual"], linewidth=1, color="red")
+        axes[3].set_ylabel("Residual", fontsize=10)
+        axes[3].grid(True, alpha=0.3)
+
+        # Outlier scores
+        timestamps_valid = df_decomp["timestamp"].values
+        outlier_mask = labels == 1
+        axes[4].plot(timestamps_valid, scores, linewidth=1, alpha=0.7, label="Outlier Score")
+        axes[4].scatter(
+            timestamps_valid[outlier_mask],
+            scores[outlier_mask],
+            c="red",
+            s=50,
+            marker="o",
+            label="Detected Outliers",
+            zorder=5,
+        )
+        axes[4].set_ylabel("Outlier Score", fontsize=10)
+        axes[4].set_xlabel("Time", fontsize=10)
+        axes[4].legend()
+        axes[4].grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig("timeseries_seasonal_decomposition.png", dpi=150, bbox_inches="tight")
+        print("Saved: timeseries_seasonal_decomposition.png\n")
+
+        return df_decomp, scores, labels
+
+    except ImportError:
+        print("Warning: statsmodels not installed. Install with: pip install statsmodels")
+        print("Skipping seasonal decomposition example.\n")
+        return None, None, None
+
+
+def multivariate_time_series_example():
+    """Example with multivariate time series."""
+    print("=== Multivariate Time Series Example ===\n")
+
+    # Generate multiple correlated time series
+    np.random.seed(42)
+    n_samples = 500
+    n_outliers = 15
+
+    timestamps = pd.date_range(start="2024-01-01", periods=n_samples, freq="H")
+
+    # Generate correlated signals
+    trend = np.linspace(10, 30, n_samples)
+    hours = np.array([t.hour for t in timestamps])
+    seasonality = 5 * np.sin(2 * np.pi * hours / 24)
+
+    # Multiple sensors with correlation
+    sensor1 = trend + seasonality + np.random.randn(n_samples) * 0.5
+    sensor2 = trend * 1.2 + seasonality * 0.8 + np.random.randn(n_samples) * 0.7
+    sensor3 = trend * 0.9 + seasonality * 1.1 + np.random.randn(n_samples) * 0.6
+    temperature = 20 + 5 * np.sin(2 * np.pi * hours / 24) + np.random.randn(n_samples) * 0.3
+    pressure = 1013 + trend * 0.5 + np.random.randn(n_samples) * 2
+
+    # Add anomalies (system-wide failures)
+    outlier_indices = np.random.choice(n_samples, n_outliers, replace=False)
+    y_true = np.zeros(n_samples)
+
+    for idx in outlier_indices:
+        y_true[idx] = 1
+        # Anomaly affects multiple sensors
+        sensor1[idx] += np.random.uniform(-10, 10)
+        sensor2[idx] += np.random.uniform(-10, 10)
+        sensor3[idx] += np.random.uniform(-10, 10)
+        temperature[idx] += np.random.uniform(-5, 5)
+
+    df = pd.DataFrame(
+        {
+            "timestamp": timestamps,
+            "sensor1": sensor1,
+            "sensor2": sensor2,
+            "sensor3": sensor3,
+            "temperature": temperature,
+            "pressure": pressure,
+        }
+    )
+
+    print(f"Dataset shape: {df.shape}")
+    print(f"Number of sensors: 5")
+    print(f"True outliers: {sum(y_true)}\n")
+
+    # Create features for each sensor
+    all_features = [df[["sensor1", "sensor2", "sensor3", "temperature", "pressure"]].copy()]
+
+    # Add temporal features
+    df_temp = df.copy()
+    df_temp["value"] = df_temp["sensor1"]  # Use sensor1 as reference for temporal features
+    df_features = create_temporal_features(df_temp)
+
+    # Combine all features
+    feature_cols = ["sensor1", "sensor2", "sensor3", "temperature", "pressure"] + [
+        col for col in df_features.columns if col not in ["timestamp", "value"]
+    ]
+    X = df_features[feature_cols]
+
+    print(f"Total features: {X.shape[1]}\n")
+
+    # Detect outliers
+    print("Detecting outliers in multivariate time series...")
+    detector = PSOD(
+        min_cols_chosen=0.5,
+        max_cols_chosen=1.0,
+        stdevs_to_outlier=2.5,
+        transform_algorithm="yeo-johnson",
+        random_seed=42,
+    )
+
+    scores = detector.fit_predict(X, return_class=False)
+    labels = detector.fit_predict(X, return_class=True)
+
+    print(f"Detected outliers: {sum(labels)}\n")
+
+    # Evaluate
+    metrics = evaluate_outlier_detection(y_true, labels, scores)
+    print("Performance Metrics:")
+    print(f"  Precision: {metrics['precision']:.3f}")
+    print(f"  Recall: {metrics['recall']:.3f}")
+    print(f"  F1-Score: {metrics['f1']:.3f}")
+    print(f"  ROC-AUC: {metrics['roc_auc']:.3f}\n")
+
+    # Visualize
+    fig, axes = plt.subplots(6, 1, figsize=(15, 14))
+
+    outlier_mask = labels == 1
+    timestamps_arr = df["timestamp"].values
+
+    # Plot each sensor
+    for idx, sensor in enumerate(["sensor1", "sensor2", "sensor3", "temperature", "pressure"]):
+        axes[idx].plot(timestamps_arr, df[sensor].values, linewidth=1, alpha=0.7, label=sensor)
+        axes[idx].scatter(
+            timestamps_arr[outlier_mask],
+            df[sensor].values[outlier_mask],
+            c="red",
+            s=50,
+            marker="X",
+            label="Outliers",
+            zorder=5,
+        )
+        axes[idx].set_ylabel(sensor, fontsize=10)
+        axes[idx].legend(loc="upper right")
+        axes[idx].grid(True, alpha=0.3)
+
+    # Plot outlier scores
+    axes[5].plot(timestamps_arr, scores, linewidth=1, alpha=0.7, label="Outlier Score")
+    axes[5].scatter(
+        timestamps_arr[outlier_mask],
+        scores[outlier_mask],
+        c="red",
+        s=50,
+        marker="o",
+        label="Detected Outliers",
+        zorder=5,
+    )
+    axes[5].set_ylabel("Outlier Score", fontsize=10)
+    axes[5].set_xlabel("Time", fontsize=10)
+    axes[5].legend()
+    axes[5].grid(True, alpha=0.3)
+
+    axes[0].set_title("Multivariate Time Series Outlier Detection", fontsize=14)
+
+    plt.tight_layout()
+    plt.savefig("timeseries_multivariate.png", dpi=150, bbox_inches="tight")
+    print("Saved: timeseries_multivariate.png\n")
+
+    return df, scores, labels, y_true
+
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("PSOD Time Series Outlier Detection Examples")
+    print("=" * 60 + "\n")
+
+    try:
+        # Run examples
+        basic_time_series_example()
+        print("\n" + "=" * 60 + "\n")
+
+        sliding_window_example()
+        print("\n" + "=" * 60 + "\n")
+
+        seasonal_decomposition_example()
+        print("\n" + "=" * 60 + "\n")
+
+        multivariate_time_series_example()
+
+        print("\n" + "=" * 60)
+        print("Time series examples completed successfully!")
+        print("=" * 60)
+
+    except Exception as e:
+        print(f"\nError running examples: {e}")
+        import traceback
+
+        traceback.print_exc()

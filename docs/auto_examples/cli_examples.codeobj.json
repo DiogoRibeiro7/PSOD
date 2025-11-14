@@ -1,0 +1,200 @@
+{
+ "PSOD": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "psod",
+   "module_short": "psod",
+   "name": "PSOD"
+  }
+ ],
+ "Path": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "pathlib",
+   "module_short": "pathlib",
+   "name": "Path"
+  }
+ ],
+ "__name__": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "builtins",
+   "module_short": "builtins",
+   "name": "str"
+  }
+ ],
+ "argparse.ArgumentParser": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "argparse",
+   "module_short": "argparse",
+   "name": "ArgumentParser"
+  }
+ ],
+ "argparse.RawDescriptionHelpFormatter": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "argparse",
+   "module_short": "argparse",
+   "name": "RawDescriptionHelpFormatter"
+  }
+ ],
+ "compute_feature_importance": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "psod",
+   "module_short": "psod",
+   "name": "compute_feature_importance"
+  }
+ ],
+ "confusion_matrix": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "sklearn.metrics",
+   "module_short": "sklearn.metrics",
+   "name": "confusion_matrix"
+  }
+ ],
+ "datetime.now": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "datetime.datetime",
+   "module_short": "datetime.datetime",
+   "name": "now"
+  }
+ ],
+ "evaluate_outlier_detection": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "psod",
+   "module_short": "psod",
+   "name": "evaluate_outlier_detection"
+  }
+ ],
+ "json.dump": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "json",
+   "module_short": "json",
+   "name": "dump"
+  }
+ ],
+ "load_model": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "psod",
+   "module_short": "psod",
+   "name": "load_model"
+  }
+ ],
+ "matplotlib.use": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "matplotlib",
+   "module_short": "matplotlib",
+   "name": "use"
+  }
+ ],
+ "np.argsort": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "numpy",
+   "module_short": "numpy",
+   "name": "argsort"
+  }
+ ],
+ "np.median": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "numpy",
+   "module_short": "numpy",
+   "name": "median"
+  }
+ ],
+ "pd.read_csv": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "pandas",
+   "module_short": "pandas",
+   "name": "read_csv"
+  }
+ ],
+ "plot_outlier_scores": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "psod.visualization",
+   "module_short": "psod",
+   "name": "plot_outlier_scores"
+  }
+ ],
+ "plt.close": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "matplotlib.pyplot",
+   "module_short": "matplotlib.pyplot",
+   "name": "close"
+  }
+ ],
+ "plt.subplots": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "matplotlib.pyplot",
+   "module_short": "matplotlib.pyplot",
+   "name": "subplots"
+  }
+ ],
+ "save_model": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "psod",
+   "module_short": "psod",
+   "name": "save_model"
+  }
+ ],
+ "sys.exit": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "sys",
+   "module_short": "sys",
+   "name": "exit"
+  }
+ ],
+ "sys.path.insert": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "sys.path",
+   "module_short": "sys.path",
+   "name": "insert"
+  }
+ ],
+ "traceback.print_exc": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "traceback",
+   "module_short": "traceback",
+   "name": "print_exc"
+  }
+ ]
+}
