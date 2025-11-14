@@ -101,6 +101,7 @@ class PSOD(BaseEstimator):
         cat_encode_on_sample: bool = False,
         flag_outlier_on: str = "both ends",
         base_learner: Type[RegressorMixin] = LinearRegression,
+        learner_kwargs: Optional[Dict[str, Any]] = None,
         cat_encoder: Type[BaseNEncoder] = TargetEncoder,
         contamination: float = 0.1,
         min_samples: int = 10,
@@ -130,6 +131,7 @@ class PSOD(BaseEstimator):
         self.random_generator = np.random.default_rng(self.random_seed)
         self.pred_distribution_stats: Dict[str, float] = {}
         self.base_learner = base_learner
+        self.learner_kwargs = learner_kwargs or {}
         self.cat_encoder = cat_encoder
         self.contamination = contamination
         self.min_samples = min_samples
@@ -904,11 +906,12 @@ class PSOD(BaseEstimator):
 
             # Fit regressor
             if "n_jobs" in self.base_learner().get_params().keys():
-                reg = self.base_learner(n_jobs=1).fit(
+                learner_params = {**self.learner_kwargs, 'n_jobs': 1}  # Use n_jobs=1 to avoid nested parallelism
+                reg = self.base_learner(**learner_params).fit(
                     temp_df.loc[idx, chosen_columns], temp_df.loc[idx, col]
-                )  # Use n_jobs=1 to avoid nested parallelism
+                )
             else:
-                reg = self.base_learner().fit(
+                reg = self.base_learner(**self.learner_kwargs).fit(
                     temp_df.loc[idx, chosen_columns], temp_df.loc[idx, col]
                 )
 

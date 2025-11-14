@@ -489,6 +489,24 @@ def plot_correlation_heatmap(
                 outlier_corr = 0.0
         outlier_pcts[col] = outlier_corr
 
+    # Handle single feature case
+    if len(X.columns) == 1:
+        fig, ax = plt.subplots(1, 1, figsize=(figsize[0] // 2, figsize[1]))
+        col = X.columns[0]
+        ax.text(
+            0.5,
+            0.5,
+            f"Single Feature: {col}\n\nCorrelation with outliers:\n{outlier_pcts[col]:.3f}",
+            ha='center',
+            va='center',
+            fontsize=14,
+            bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
+        )
+        ax.set_title("Feature Correlation Analysis")
+        ax.axis('off')
+        fig.tight_layout()
+        return fig
+
     # Create figure with subplots
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
 
