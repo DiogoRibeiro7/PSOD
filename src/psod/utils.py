@@ -236,6 +236,11 @@ def validate_dataframe(
                 validation_results["recommendations"].append(
                     "Consider imputation or removing columns with excessive missing values"
                 )
+            else:
+                # Add recommendation for any missing values
+                validation_results["recommendations"].append(
+                    f"Dataset contains {missing_percentage:.1f}% missing values. Consider handling them."
+                )
 
     # Check data types consistency
     if check_dtypes:
@@ -601,7 +606,9 @@ def evaluate_outlier_detection(
                 results["recall"] = recall_score(y_true_binary, y_pred_binary, zero_division=0)
 
             elif metric.lower() in ["f1", "f1_score"]:
-                results["f1_score"] = f1_score(y_true_binary, y_pred_binary, zero_division=0)
+                f1_val = f1_score(y_true_binary, y_pred_binary, zero_division=0)
+                results["f1"] = f1_val
+                results["f1_score"] = f1_val
 
             elif metric.lower() in ["auc_roc", "roc_auc"]:
                 if not is_binary_pred:

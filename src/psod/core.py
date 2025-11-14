@@ -1204,7 +1204,7 @@ class PSOD(BaseEstimator):
             logger.error(f"Failed to load model from {filepath}: {str(e)}")
             raise
 
-    def get_feature_importance(self, method: str = "default") -> pd.DataFrame:
+    def get_feature_importance(self, method: str = "default") -> Optional[pd.DataFrame]:
         """
         Get feature importance scores.
 
@@ -1216,11 +1216,12 @@ class PSOD(BaseEstimator):
 
         Returns
         -------
-        pd.DataFrame
-            DataFrame with feature importance scores.
+        pd.DataFrame or None
+            DataFrame with feature importance scores, or None if model not fitted.
         """
         if not self._is_fitted:
-            raise ValueError("Model must be fitted before getting feature importance.")
+            logger.warning("Model not fitted. Returning None for feature importance.")
+            return None
 
         if method in ["default", "correlation"]:
             if self.feature_importances_ is None:

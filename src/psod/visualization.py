@@ -481,7 +481,12 @@ def plot_correlation_heatmap(
     outlier_pcts = {}
     for col in X.columns:
         # For numerical features, calculate correlation with outlier labels
-        outlier_corr = np.corrcoef(X[col], outlier_labels)[0, 1]
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=RuntimeWarning)
+            outlier_corr = np.corrcoef(X[col], outlier_labels)[0, 1]
+            # Handle NaN values (can occur with constant columns or all-zero labels)
+            if np.isnan(outlier_corr):
+                outlier_corr = 0.0
         outlier_pcts[col] = outlier_corr
 
     # Create figure with subplots
