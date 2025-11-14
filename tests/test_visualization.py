@@ -214,7 +214,7 @@ class TestPlotFeatureContributions:
         sample_idx = 0
 
         fig = viz.plot_feature_contributions(
-            model=fitted_psod_model, X=sample_numeric_data, sample_idx=sample_idx
+            model=fitted_psod_model, sample_idx=sample_idx
         )
 
         assert fig is not None
@@ -223,7 +223,7 @@ class TestPlotFeatureContributions:
     def test_contributions_topk(self, sample_numeric_data, fitted_psod_model):
         """Test with top-k features."""
         fig = viz.plot_feature_contributions(
-            model=fitted_psod_model, X=sample_numeric_data, sample_idx=0, top_k=5
+            model=fitted_psod_model, sample_idx=0, top_k=5
         )
 
         assert fig is not None

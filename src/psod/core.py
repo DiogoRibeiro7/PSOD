@@ -211,6 +211,34 @@ class PSOD(BaseEstimator):
         if self.missing_value_strategy not in valid_missing_strategies:
             raise ValueError(f"missing_value_strategy must be one of {valid_missing_strategies}.")
 
+    def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
+        """
+        Convert input to DataFrame if necessary (sklearn compatibility).
+
+        Parameters
+        ----------
+        X : pd.DataFrame or np.ndarray
+            Input data
+
+        Returns
+        -------
+        pd.DataFrame
+            Input converted to DataFrame
+        """
+        if isinstance(X, pd.DataFrame):
+            return X
+        elif isinstance(X, np.ndarray):
+            # Create DataFrame with default column names
+            n_features = X.shape[1] if X.ndim > 1 else 1
+            if self.feature_names_ is not None:
+                # Use stored feature names if available
+                columns = self.feature_names_
+            else:
+                columns = [f"feature_{i}" for i in range(n_features)]
+            return pd.DataFrame(X, columns=columns)
+        else:
+            raise TypeError(f"Expected DataFrame or ndarray, got {type(X)}")
+
     def __str__(self):
         """String representation of PSOD object."""
         return f"""
@@ -289,6 +317,14 @@ class PSOD(BaseEstimator):
         List[str]
             List of chosen column names.
         """
+        # Handle case where no columns are available
+        if len(df.columns) == 0:
+            warnings.warn(
+                "No columns available for selection. Cannot build regression model.",
+                UserWarning
+            )
+            return []
+
         nb_cols = (
             1
             if self.min_cols_chosen == self.max_cols_chosen == 1
@@ -298,6 +334,10 @@ class PSOD(BaseEstimator):
                 replace=False,
             )[0]
         )
+
+        # Ensure we don't try to select more columns than available
+        nb_cols = min(nb_cols, len(df.columns))
+
         return self.random_generator.choice(df.columns, nb_cols, replace=False).tolist()
 
     def correlation_feature_selection(self, df: pd.DataFrame, target_col: str) -> List[str]:
@@ -491,14 +531,24 @@ class PSOD(BaseEstimator):
         var_data = df.var()
         return var_data[var_data != 0].index.to_list()
 
-    def _validate_input(self, df: pd.DataFrame) -> None:
-        """Validate input DataFrame."""
+    def _validate_input(self, df: pd.DataFrame, is_training: bool = True) -> None:
+        """
+        Validate input DataFrame.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame to validate.
+        is_training : bool, default=True
+            Whether this is training (fit) or prediction mode.
+            Min samples check only applies to training.
+        """
         # Check for empty DataFrame
         if df.empty:
             raise ValueError("Input DataFrame is empty")
 
-        # Check for minimum number of samples
-        if len(df) < self.min_samples:
+        # Check for minimum number of samples (only during training)
+        if is_training and len(df) < self.min_samples:
             raise ValueError(
                 f"Input DataFrame has {len(df)} samples, "
                 f"but minimum required is {self.min_samples}"
@@ -727,23 +777,30 @@ class PSOD(BaseEstimator):
 
         logger.debug(f"Calculated feature importances for {len(combined_importance)} features")
 
-    def fit_predict(self, df: pd.DataFrame, return_class: bool = False) -> pd.Series:
+    def fit_predict(self, df: Union[pd.DataFrame, np.ndarray], return_class: bool = False) -> Union[pd.Series, np.ndarray]:
         """
         Train PSOD and return outlier predictions.
 
         Parameters
         ----------
-        df : pd.DataFrame
-            DataFrame to detect outliers from.
+        df : pd.DataFrame or np.ndarray
+            Data to detect outliers from.
         return_class : bool, default=False
             Return class labels if True, else return outlier scores.
 
         Returns
         -------
-        pd.Series
-            Outlier predictions.
+        pd.Series or np.ndarray
+            Outlier predictions. Returns ndarray if input is ndarray.
         """
         logger.info("Starting PSOD fit_predict")
+
+        # Reset random generator for reproducibility
+        self.random_generator = np.random.default_rng(self.random_seed)
+
+        # Convert to DataFrame if necessary
+        input_was_array = isinstance(df, np.ndarray)
+        df = self._to_dataframe(df)
 
         # Add input validation
         self._validate_input(df)
@@ -782,7 +839,37 @@ class PSOD(BaseEstimator):
             enum, col = enum_col_tuple
             logger.debug(f"Fitting regressor for column: {col}")
 
-            chosen_columns = self.chose_random_columns(df.drop(columns=[col]))
+            # Create a deterministic random generator for this regressor
+            # to ensure reproducibility in parallel execution
+            local_rng = np.random.default_rng(self.random_seed + enum)
+
+            # Use local random generator for column selection
+            nb_cols_options = df.drop(columns=[col]).columns
+            if len(nb_cols_options) == 0:
+                warnings.warn(
+                    "No columns available for selection. Cannot build regression model.",
+                    UserWarning
+                )
+                chosen_columns = []
+            else:
+                nb_cols = (
+                    1
+                    if self.min_cols_chosen == self.max_cols_chosen == 1
+                    else local_rng.choice(
+                        np.arange(self.min_cols_chosen, self.max_cols_chosen) + 1,
+                        1,
+                        replace=False,
+                    )[0]
+                )
+                nb_cols = min(nb_cols, len(nb_cols_options))
+                chosen_columns = local_rng.choice(nb_cols_options, nb_cols, replace=False).tolist()
+
+            # Handle case where no columns are available (single column dataset)
+            if not chosen_columns:
+                # Return default values - no error, just median scores
+                default_error = pd.Series([0.5] * len(df_scores), index=df_scores.index)
+                return (col, [], None, None, default_error, default_error)
+
             temp_df = df.copy()
             chosen_cat_cols = (
                 self.col_intersection(self.cat_columns, chosen_columns)
@@ -806,6 +893,10 @@ class PSOD(BaseEstimator):
                 transformed_cat_cols = cat_encoder.transform(temp_df[chosen_cat_cols], temp_df[col])
                 temp_df = temp_df.drop(columns=chosen_cat_cols).reset_index(drop=True)
                 temp_df = pd.concat([temp_df, transformed_cat_cols.reset_index(drop=True)], axis=1)
+
+                # Update chosen_columns to replace categorical columns with transformed columns
+                chosen_columns = [c for c in chosen_columns if c not in chosen_cat_cols]
+                chosen_columns.extend(transformed_cat_cols.columns.tolist())
 
             # Fit regressor
             if "n_jobs" in self.base_learner().get_params().keys():
@@ -878,25 +969,28 @@ class PSOD(BaseEstimator):
             f"Fitting completed. Detected {outlier_count} outliers out of {len(df)} samples."
         )
 
-        return (
+        result = (
             self.make_outlier_classes(df_scores, use_trained_stats=False)
             if return_class
             else df_scores["anomaly"]
         )
 
+        # Return numpy array if input was numpy array (sklearn compatibility)
+        return result.values if input_was_array else result
+
     def predict(
         self,
-        df: pd.DataFrame,
+        df: Union[pd.DataFrame, np.ndarray],
         return_class: bool = False,
         use_trained_stats: bool = True,
-    ) -> pd.Series:
+    ) -> Union[pd.Series, np.ndarray]:
         """
         Predict outliers using a trained PSOD instance on new data.
 
         Parameters
         ----------
-        df : pd.DataFrame
-            DataFrame to predict outliers from.
+        df : pd.DataFrame or np.ndarray
+            Data to predict outliers from.
         return_class : bool, default=False
             Return class labels if True, else return outlier scores.
         use_trained_stats : bool, default=True
@@ -904,9 +998,12 @@ class PSOD(BaseEstimator):
 
         Returns
         -------
-        pd.Series
-            Outlier predictions.
+        pd.Series or np.ndarray
+            Outlier predictions. Returns ndarray if input is ndarray.
         """
+        # Convert to DataFrame if necessary
+        input_was_array = isinstance(df, np.ndarray)
+        df = self._to_dataframe(df)
         logger.info("Starting PSOD predict")
 
         # Check if model is fitted
@@ -915,8 +1012,8 @@ class PSOD(BaseEstimator):
                 "Model must be fitted before making predictions. Call fit_predict first."
             )
 
-        # Add input validation
-        self._validate_input(df)
+        # Add input validation (prediction mode, no min_samples check)
+        self._validate_input(df, is_training=False)
 
         # Handle missing values using fitted imputer
         df = self._handle_missing_values(df, is_training=False)
@@ -988,7 +1085,8 @@ class PSOD(BaseEstimator):
         )
         logger.info(f"Prediction completed for {len(df)} samples.")
 
-        return result
+        # Return numpy array if input was numpy array (sklearn compatibility)
+        return result.values if input_was_array else result
 
     def save_model(self, filepath: str, format: str = "pickle") -> None:
         """
@@ -1100,9 +1198,15 @@ class PSOD(BaseEstimator):
             logger.error(f"Failed to load model from {filepath}: {str(e)}")
             raise
 
-    def get_feature_importance(self) -> pd.DataFrame:
+    def get_feature_importance(self, method: str = "default") -> pd.DataFrame:
         """
         Get feature importance scores.
+
+        Parameters
+        ----------
+        method : str, default="default"
+            Method for calculating feature importance.
+            Options: "default", "correlation", "mutual_info"
 
         Returns
         -------
@@ -1112,18 +1216,22 @@ class PSOD(BaseEstimator):
         if not self._is_fitted:
             raise ValueError("Model must be fitted before getting feature importance.")
 
-        if self.feature_importances_ is None:
-            self._calculate_feature_importances()
+        if method in ["default", "correlation"]:
+            if self.feature_importances_ is None:
+                self._calculate_feature_importances()
+            return self.feature_importances_.copy()
+        elif method == "mutual_info":
+            raise NotImplementedError("Mutual information method not yet implemented")
+        else:
+            raise ValueError(f"Unknown method: {method}")
 
-        return self.feature_importances_.copy()
-
-    def score_samples(self, df: pd.DataFrame) -> np.ndarray:
+    def score_samples(self, df: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
         """
         Return anomaly scores for samples (sklearn compatibility).
 
         Parameters
         ----------
-        df : pd.DataFrame
+        df : pd.DataFrame or np.ndarray
             Input samples.
 
         Returns
@@ -1131,15 +1239,16 @@ class PSOD(BaseEstimator):
         np.ndarray
             Anomaly scores.
         """
-        return self.predict(df, return_class=False).values
+        result = self.predict(df, return_class=False)
+        return result.values if isinstance(result, pd.Series) else result
 
-    def decision_function(self, df: pd.DataFrame) -> np.ndarray:
+    def decision_function(self, df: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
         """
         Return anomaly scores for samples (sklearn compatibility).
 
         Parameters
         ----------
-        df : pd.DataFrame
+        df : pd.DataFrame or np.ndarray
             Input samples.
 
         Returns
@@ -1149,13 +1258,13 @@ class PSOD(BaseEstimator):
         """
         return self.score_samples(df)
 
-    def fit(self, X: pd.DataFrame, y=None) -> "PSOD":
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y=None) -> "PSOD":
         """
         Fit the model (sklearn compatibility).
 
         Parameters
         ----------
-        X : pd.DataFrame
+        X : pd.DataFrame or np.ndarray
             Training data.
         y : ignored
             Not used, present for sklearn compatibility.

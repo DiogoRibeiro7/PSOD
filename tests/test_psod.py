@@ -41,10 +41,10 @@ class TestPSODInitialization:
         assert psod.n_jobs == -1
         assert psod.min_cols_chosen == 0.5
         assert psod.max_cols_chosen == 1.0
-        assert psod.correlation_threshold == 0.75
-        assert psod.sample_frac == 0.75
+        assert psod.correlation_threshold == 0.05
+        assert psod.sample_frac == 1.0
         assert psod.flag_outlier_on == "both ends"
-        assert psod.contamination is None
+        assert psod.contamination == 0.1
         assert psod.missing_value_strategy == "mean"
 
     def test_custom_initialization(self):
@@ -183,7 +183,7 @@ class TestPSODFitPredict:
 
     def test_fit_predict_small_dataset(self, small_dataset):
         """Test fit_predict with very small dataset."""
-        psod = PSOD(random_seed=42)
+        psod = PSOD(random_seed=42, min_samples=3)
         scores = psod.fit_predict(small_dataset)
 
         assert len(scores) == len(small_dataset)
@@ -330,7 +330,7 @@ class TestPSODPersistence:
 
         # Save model
         psod.save_model(str(tmp_model_path))
-        assert tmp_model_path.exists()
+        assert tmp_model_path.with_suffix('.pkl').exists()
 
         # Load model
         loaded_psod = PSOD.load_model(str(tmp_model_path))

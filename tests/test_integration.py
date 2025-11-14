@@ -50,7 +50,13 @@ class TestCompleteWorkflows:
         assert threshold is not None
 
         # 5. Verify consistency
-        manual_labels = (scores > threshold).astype(int)
+        if isinstance(threshold, tuple):
+            # For "both ends", outliers are outside the range (lower, upper)
+            lower, upper = threshold
+            manual_labels = ((scores < lower) | (scores > upper)).astype(int)
+        else:
+            # For single threshold (high end or low end)
+            manual_labels = (scores > threshold).astype(int)
         assert np.array_equal(labels, manual_labels)
 
     def test_workflow_with_train_test_split(self, sample_numeric_data):

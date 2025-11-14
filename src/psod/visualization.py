@@ -92,7 +92,7 @@ def plot_outlier_scores(
     # 2. Box plot
     bp = ax2.boxplot(
         scores_array,
-        vert=True,
+        orientation='vertical',
         patch_artist=True,
         widths=0.5,
         showmeans=True,
