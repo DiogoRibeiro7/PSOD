@@ -5,17 +5,20 @@ Demonstrates all visualization functions with synthetic data.
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent / 'src' / 'psod'))
+
+sys.path.insert(0, str(Path(__file__).parent / "src" / "psod"))
 
 # Set UTF-8 encoding for Windows console
-if sys.platform == 'win32':
+if sys.platform == "win32":
     import codecs
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer, "strict")
 
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend
+
+matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
 
 # Import utils and visualization
@@ -30,11 +33,7 @@ print("=" * 70)
 print("\n1. Generating synthetic outlier data...")
 np.random.seed(42)
 X, y_true = utils.generate_outlier_data(
-    n_samples=200,
-    n_features=10,
-    contamination=0.1,
-    outlier_type='mixed',
-    random_state=42
+    n_samples=200, n_features=10, contamination=0.1, outlier_type="mixed", random_state=42
 )
 print(f"   ✓ Generated {X.shape[0]} samples with {X.shape[1]} features")
 print(f"   ✓ True outliers: {np.sum(y_true)} ({np.sum(y_true)/len(y_true)*100:.1f}%)")
@@ -55,9 +54,9 @@ try:
         threshold=threshold,
         bins=50,
         title="Comprehensive Outlier Score Distribution",
-        figsize=(12, 8)
+        figsize=(12, 8),
     )
-    fig.savefig('test_output_score_dist.png', dpi=150, bbox_inches='tight')
+    fig.savefig("test_output_score_dist.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print("   ✓ Created comprehensive 4-subplot score distribution plot")
     print("     - Histogram with colored outlier bins")
@@ -68,6 +67,7 @@ try:
 except Exception as e:
     print(f"   ✗ Error: {str(e)}")
     import traceback
+
     traceback.print_exc()
 
 # Test 2: Comprehensive Static Dashboard
@@ -78,7 +78,7 @@ try:
         outlier_scores=outlier_scores,
         outlier_labels=y_pred,
         model=None,  # Can pass PSOD model if available
-        save_path='test_output_dashboard.png'
+        save_path="test_output_dashboard.png",
     )
     plt.close(fig)
     print("   ✓ Created comprehensive dashboard with 12+ panels:")
@@ -90,19 +90,16 @@ try:
 except Exception as e:
     print(f"   ✗ Error: {str(e)}")
     import traceback
+
     traceback.print_exc()
 
 # Test 3: Outlier Scatter Plot
 print("\n4. Testing plot_outliers_scatter...")
 try:
     fig = viz.plot_outliers_scatter(
-        X=X,
-        outlier_labels=y_pred,
-        features=list(X.columns[:3]),
-        dim=3,
-        use_pca=False
+        X=X, outlier_labels=y_pred, features=list(X.columns[:3]), dim=3, use_pca=False
     )
-    fig.write_html('test_output_scatter.html')
+    fig.write_html("test_output_scatter.html")
     print("   ✓ Created 3D scatter plot with outliers highlighted")
     print("   ✓ Saved to: test_output_scatter.html")
 except Exception as e:
@@ -112,12 +109,9 @@ except Exception as e:
 print("\n5. Testing plot_feature_distributions...")
 try:
     fig = viz.plot_feature_distributions(
-        X=X,
-        outlier_labels=y_pred,
-        max_features=12,
-        figsize=(15, 10)
+        X=X, outlier_labels=y_pred, max_features=12, figsize=(15, 10)
     )
-    fig.savefig('test_output_feature_dists.png', dpi=150, bbox_inches='tight')
+    fig.savefig("test_output_feature_dists.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print("   ✓ Created feature distribution comparison plots")
     print("   ✓ Saved to: test_output_feature_dists.png")
@@ -128,11 +122,9 @@ except Exception as e:
 print("\n6. Testing plot_roc_pr_curves...")
 try:
     fig = viz.plot_roc_pr_curves(
-        y_true=y_true,
-        y_scores=outlier_scores,
-        title="Outlier Detection Performance Curves"
+        y_true=y_true, y_scores=outlier_scores, title="Outlier Detection Performance Curves"
     )
-    fig.savefig('test_output_roc_pr.png', dpi=150, bbox_inches='tight')
+    fig.savefig("test_output_roc_pr.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print("   ✓ Created ROC and Precision-Recall curves")
     print("   ✓ Saved to: test_output_roc_pr.png")
@@ -142,12 +134,8 @@ except Exception as e:
 # Test 6: Correlation Heatmap
 print("\n7. Testing plot_correlation_heatmap...")
 try:
-    fig = viz.plot_correlation_heatmap(
-        X=X,
-        outlier_labels=y_pred,
-        figsize=(12, 10)
-    )
-    fig.savefig('test_output_corr_heatmap.png', dpi=150, bbox_inches='tight')
+    fig = viz.plot_correlation_heatmap(X=X, outlier_labels=y_pred, figsize=(12, 10))
+    fig.savefig("test_output_corr_heatmap.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print("   ✓ Created correlation heatmap with outlier correlations")
     print("   ✓ Saved to: test_output_corr_heatmap.png")
@@ -158,17 +146,11 @@ except Exception as e:
 print("\n8. Testing plot_score_evolution...")
 try:
     # Simulate multiple iterations
-    scores_history = [
-        outlier_scores + np.random.randn(len(outlier_scores)) * 0.1
-        for _ in range(5)
-    ]
-    labels = [f'Iteration {i+1}' for i in range(5)]
+    scores_history = [outlier_scores + np.random.randn(len(outlier_scores)) * 0.1 for _ in range(5)]
+    labels = [f"Iteration {i+1}" for i in range(5)]
 
-    fig = viz.plot_score_evolution(
-        scores_history=scores_history,
-        labels=labels
-    )
-    fig.write_html('test_output_evolution.html')
+    fig = viz.plot_score_evolution(scores_history=scores_history, labels=labels)
+    fig.write_html("test_output_evolution.html")
     print("   ✓ Created score evolution plot across iterations")
     print("   ✓ Saved to: test_output_evolution.html")
 except Exception as e:
@@ -178,11 +160,9 @@ except Exception as e:
 print("\n9. Testing plot_outlier_evolution_heatmap...")
 try:
     fig = viz.plot_outlier_evolution_heatmap(
-        scores_history=scores_history,
-        labels=labels,
-        figsize=(12, 8)
+        scores_history=scores_history, labels=labels, figsize=(12, 8)
     )
-    fig.savefig('test_output_evolution_heatmap.png', dpi=150, bbox_inches='tight')
+    fig.savefig("test_output_evolution_heatmap.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
     print("   ✓ Created outlier evolution heatmap")
     print("   ✓ Saved to: test_output_evolution_heatmap.png")

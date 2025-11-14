@@ -10,12 +10,14 @@ from pathlib import Path
 import sys
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from psod import PSOD
 from psod import utils
+
 try:
     from psod import visualization as viz
+
     HAS_VIZ = True
 except ImportError:
     HAS_VIZ = False
@@ -24,6 +26,7 @@ except ImportError:
 # ============================================================================
 # COMPLETE WORKFLOW TESTS
 # ============================================================================
+
 
 @pytest.mark.integration
 class TestCompleteWorkflows:
@@ -56,9 +59,7 @@ class TestCompleteWorkflows:
 
         # Split data
         train_data, test_data = train_test_split(
-            sample_numeric_data,
-            test_size=0.3,
-            random_state=42
+            sample_numeric_data, test_size=0.3, random_state=42
         )
 
         # Train
@@ -85,7 +86,7 @@ class TestCompleteWorkflows:
 
         # Use importance for feature selection (top 50%)
         if isinstance(importance, pd.DataFrame):
-            top_features = importance.nlargest(2, 'importance')['feature'].tolist()
+            top_features = importance.nlargest(2, "importance")["feature"].tolist()
         elif isinstance(importance, dict):
             sorted_features = sorted(importance.items(), key=lambda x: x[1], reverse=True)
             top_features = [f for f, _ in sorted_features[:2]]
@@ -136,6 +137,7 @@ class TestCompleteWorkflows:
 # WORKFLOW WITH UTILS INTEGRATION
 # ============================================================================
 
+
 @pytest.mark.integration
 class TestWorkflowsWithUtils:
     """Tests for workflows integrating PSOD with utility functions."""
@@ -147,8 +149,8 @@ class TestWorkflowsWithUtils:
             n_samples=200,
             n_features=5,
             contamination=0.1,
-            outlier_type='global',
-            random_state=random_seed
+            outlier_type="global",
+            random_state=random_seed,
         )
 
         # Detect outliers
@@ -158,19 +160,16 @@ class TestWorkflowsWithUtils:
         # Evaluate
         metrics = utils.evaluate_outlier_detection(y_true, y_pred)
 
-        assert 'precision' in metrics
-        assert 'recall' in metrics
-        assert 'f1_score' in metrics
+        assert "precision" in metrics
+        assert "recall" in metrics
+        assert "f1_score" in metrics
         # Should detect some outliers correctly
-        assert metrics['recall'] > 0.3
+        assert metrics["recall"] > 0.3
 
     def test_workflow_with_missing_value_handling(self, missing_value_data):
         """Test workflow with missing value preprocessing."""
         # Handle missing values using utils
-        cleaned_data = utils.handle_missing_values(
-            missing_value_data,
-            strategy='mean'
-        )
+        cleaned_data = utils.handle_missing_values(missing_value_data, strategy="mean")
 
         # Verify no missing values
         assert not cleaned_data.isnull().any().any()
@@ -185,32 +184,24 @@ class TestWorkflowsWithUtils:
     def test_workflow_with_score_combination(self, sample_numeric_data, random_seed):
         """Test workflow combining multiple model scores."""
         # Train multiple models with different configurations
-        model1 = PSOD(base_learner='LinearRegression', random_seed=random_seed)
+        model1 = PSOD(base_learner="LinearRegression", random_seed=random_seed)
         scores1 = model1.fit_predict(sample_numeric_data)
 
-        model2 = PSOD(base_learner='Ridge', random_seed=random_seed)
+        model2 = PSOD(base_learner="Ridge", random_seed=random_seed)
         scores2 = model2.fit_predict(sample_numeric_data)
 
-        model3 = PSOD(
-            transform_algorithm='yeo-johnson',
-            random_seed=random_seed
-        )
+        model3 = PSOD(transform_algorithm="yeo-johnson", random_seed=random_seed)
         scores3 = model3.fit_predict(sample_numeric_data)
 
         # Combine scores
         combined_scores = utils.combine_outlier_scores(
-            [scores1, scores2, scores3],
-            method='average'
+            [scores1, scores2, scores3], method="average"
         )
 
         assert len(combined_scores) == len(sample_numeric_data)
 
         # Use combined scores for final detection
-        threshold = utils.select_threshold(
-            combined_scores,
-            method='percentile',
-            contamination=0.1
-        )
+        threshold = utils.select_threshold(combined_scores, method="percentile", contamination=0.1)
         final_labels = (combined_scores > threshold).astype(int)
 
         assert len(final_labels) == len(sample_numeric_data)
@@ -223,10 +214,7 @@ class TestWorkflowsWithUtils:
         raw_scores = model.fit_predict(sample_numeric_data)
 
         # Calibrate scores
-        calibrated_scores = utils.calibrate_scores(
-            raw_scores,
-            contamination=0.1
-        )
+        calibrated_scores = utils.calibrate_scores(raw_scores, contamination=0.1)
 
         # Verify calibration
         outlier_count = np.sum(calibrated_scores > 0)
@@ -238,15 +226,15 @@ class TestWorkflowsWithUtils:
         # Validate data first
         validation_report = utils.validate_outlier_data(sample_numeric_data)
 
-        assert 'n_samples' in validation_report
-        assert 'n_features' in validation_report
-        assert 'missing_values' in validation_report
+        assert "n_samples" in validation_report
+        assert "n_features" in validation_report
+        assert "missing_values" in validation_report
 
         # If valid, proceed with detection
-        if validation_report['is_valid']:
+        if validation_report["is_valid"]:
             model = PSOD(random_seed=42)
             scores = model.fit_predict(sample_numeric_data)
-            assert len(scores) == validation_report['n_samples']
+            assert len(scores) == validation_report["n_samples"]
 
     def test_workflow_with_threshold_selection(self, sample_numeric_data):
         """Test workflow with different threshold selection methods."""
@@ -254,14 +242,10 @@ class TestWorkflowsWithUtils:
         scores = model.fit_predict(sample_numeric_data)
 
         # Try different threshold selection methods
-        methods = ['percentile', 'median', 'std']
+        methods = ["percentile", "median", "std"]
 
         for method in methods:
-            threshold = utils.select_threshold(
-                scores,
-                method=method,
-                contamination=0.1
-            )
+            threshold = utils.select_threshold(scores, method=method, contamination=0.1)
             labels = (scores > threshold).astype(int)
 
             assert len(labels) == len(sample_numeric_data)
@@ -273,9 +257,9 @@ class TestWorkflowsWithUtils:
         raw_scores = model.fit_predict(sample_numeric_data)
 
         # Normalize scores using different methods
-        minmax_scores = utils.normalize_scores(raw_scores, method='minmax')
-        zscore_scores = utils.normalize_scores(raw_scores, method='zscore')
-        rank_scores = utils.normalize_scores(raw_scores, method='rank')
+        minmax_scores = utils.normalize_scores(raw_scores, method="minmax")
+        zscore_scores = utils.normalize_scores(raw_scores, method="zscore")
+        rank_scores = utils.normalize_scores(raw_scores, method="rank")
 
         # All should have same length
         assert len(minmax_scores) == len(zscore_scores) == len(rank_scores)
@@ -284,15 +268,13 @@ class TestWorkflowsWithUtils:
         assert np.all(minmax_scores >= 0) and np.all(minmax_scores <= 1)
 
         # Rank should preserve order
-        assert np.array_equal(
-            np.argsort(raw_scores),
-            np.argsort(rank_scores)
-        )
+        assert np.array_equal(np.argsort(raw_scores), np.argsort(rank_scores))
 
 
 # ============================================================================
 # VISUALIZATION INTEGRATION TESTS
 # ============================================================================
+
 
 @pytest.mark.skipif(not HAS_VIZ, reason="visualization module not available")
 @pytest.mark.integration
@@ -311,11 +293,8 @@ class TestWorkflowsWithVisualization:
         import matplotlib.pyplot as plt
 
         # 1. Score distribution
-        fig1 = viz.plot_outlier_scores(
-            scores=scores,
-            threshold=model.get_outlier_threshold()
-        )
-        fig1.savefig(tmp_path / 'scores.png')
+        fig1 = viz.plot_outlier_scores(scores=scores, threshold=model.get_outlier_threshold())
+        fig1.savefig(tmp_path / "scores.png")
         plt.close(fig1)
 
         # 2. Dashboard
@@ -324,30 +303,27 @@ class TestWorkflowsWithVisualization:
             outlier_scores=scores,
             outlier_labels=labels,
             model=model,
-            save_path=str(tmp_path / 'dashboard.png')
+            save_path=str(tmp_path / "dashboard.png"),
         )
         plt.close(fig2)
 
         # 3. Feature distributions
-        fig3 = viz.plot_feature_distributions(
-            X=sample_numeric_data,
-            outlier_labels=labels
-        )
-        fig3.savefig(tmp_path / 'distributions.png')
+        fig3 = viz.plot_feature_distributions(X=sample_numeric_data, outlier_labels=labels)
+        fig3.savefig(tmp_path / "distributions.png")
         plt.close(fig3)
 
         # Verify files created
-        assert (tmp_path / 'scores.png').exists()
-        assert (tmp_path / 'dashboard.png').exists()
-        assert (tmp_path / 'distributions.png').exists()
+        assert (tmp_path / "scores.png").exists()
+        assert (tmp_path / "dashboard.png").exists()
+        assert (tmp_path / "distributions.png").exists()
 
     def test_comparative_model_visualization(self, sample_numeric_data, tmp_path):
         """Test workflow comparing multiple models visually."""
         # Train multiple models
         models = {
-            'Linear': PSOD(base_learner='LinearRegression', random_seed=42),
-            'Ridge': PSOD(base_learner='Ridge', random_seed=42),
-            'Log Transform': PSOD(transform_algorithm='logarithmic', random_seed=42)
+            "Linear": PSOD(base_learner="LinearRegression", random_seed=42),
+            "Ridge": PSOD(base_learner="Ridge", random_seed=42),
+            "Log Transform": PSOD(transform_algorithm="logarithmic", random_seed=42),
         }
 
         scores_history = []
@@ -363,18 +339,18 @@ class TestWorkflowsWithVisualization:
         import matplotlib.pyplot as plt
 
         fig = viz.plot_outlier_evolution_heatmap(
-            scores_history=scores_history,
-            labels=list(models.keys())
+            scores_history=scores_history, labels=list(models.keys())
         )
-        fig.savefig(tmp_path / 'model_comparison.png')
+        fig.savefig(tmp_path / "model_comparison.png")
         plt.close(fig)
 
-        assert (tmp_path / 'model_comparison.png').exists()
+        assert (tmp_path / "model_comparison.png").exists()
 
 
 # ============================================================================
 # REAL-WORLD SCENARIO TESTS
 # ============================================================================
+
 
 @pytest.mark.integration
 class TestRealWorldScenarios:
@@ -389,20 +365,24 @@ class TestRealWorldScenarios:
         n_fraud = 50
 
         # Normal transactions
-        normal_data = pd.DataFrame({
-            'amount': np.random.exponential(50, n_normal),
-            'time_since_last': np.random.exponential(3600, n_normal),
-            'merchant_category': np.random.randint(0, 20, n_normal),
-            'distance_from_home': np.random.exponential(5, n_normal)
-        })
+        normal_data = pd.DataFrame(
+            {
+                "amount": np.random.exponential(50, n_normal),
+                "time_since_last": np.random.exponential(3600, n_normal),
+                "merchant_category": np.random.randint(0, 20, n_normal),
+                "distance_from_home": np.random.exponential(5, n_normal),
+            }
+        )
 
         # Fraudulent transactions (unusual patterns)
-        fraud_data = pd.DataFrame({
-            'amount': np.random.exponential(500, n_fraud) + 200,  # Higher amounts
-            'time_since_last': np.random.exponential(60, n_fraud),  # Rapid succession
-            'merchant_category': np.random.randint(0, 20, n_fraud),
-            'distance_from_home': np.random.exponential(50, n_fraud) + 20  # Far from home
-        })
+        fraud_data = pd.DataFrame(
+            {
+                "amount": np.random.exponential(500, n_fraud) + 200,  # Higher amounts
+                "time_since_last": np.random.exponential(60, n_fraud),  # Rapid succession
+                "merchant_category": np.random.randint(0, 20, n_fraud),
+                "distance_from_home": np.random.exponential(50, n_fraud) + 20,  # Far from home
+            }
+        )
 
         # Combine
         X = pd.concat([normal_data, fraud_data], ignore_index=True)
@@ -416,8 +396,8 @@ class TestRealWorldScenarios:
         metrics = utils.evaluate_outlier_detection(y_true, y_pred)
 
         # Should detect some fraud
-        assert metrics['recall'] > 0.2
-        assert metrics['precision'] > 0.1
+        assert metrics["recall"] > 0.2
+        assert metrics["precision"] > 0.1
 
     def test_network_intrusion_scenario(self, random_seed):
         """Simulate network intrusion detection workflow."""
@@ -428,37 +408,37 @@ class TestRealWorldScenarios:
         n_intrusion = 100
 
         # Normal traffic
-        normal_traffic = pd.DataFrame({
-            'packet_size': np.random.normal(500, 100, n_normal),
-            'packets_per_second': np.random.normal(10, 2, n_normal),
-            'connection_duration': np.random.exponential(30, n_normal),
-            'port_number': np.random.choice([80, 443, 22], n_normal)
-        })
+        normal_traffic = pd.DataFrame(
+            {
+                "packet_size": np.random.normal(500, 100, n_normal),
+                "packets_per_second": np.random.normal(10, 2, n_normal),
+                "connection_duration": np.random.exponential(30, n_normal),
+                "port_number": np.random.choice([80, 443, 22], n_normal),
+            }
+        )
 
         # Intrusion traffic (anomalous patterns)
-        intrusion_traffic = pd.DataFrame({
-            'packet_size': np.random.normal(1500, 300, n_intrusion),  # Larger packets
-            'packets_per_second': np.random.normal(100, 20, n_intrusion),  # High rate
-            'connection_duration': np.random.exponential(1, n_intrusion),  # Short duration
-            'port_number': np.random.randint(1000, 9999, n_intrusion)  # Unusual ports
-        })
+        intrusion_traffic = pd.DataFrame(
+            {
+                "packet_size": np.random.normal(1500, 300, n_intrusion),  # Larger packets
+                "packets_per_second": np.random.normal(100, 20, n_intrusion),  # High rate
+                "connection_duration": np.random.exponential(1, n_intrusion),  # Short duration
+                "port_number": np.random.randint(1000, 9999, n_intrusion),  # Unusual ports
+            }
+        )
 
         # Combine
         X = pd.concat([normal_traffic, intrusion_traffic], ignore_index=True)
         y_true = np.concatenate([np.zeros(n_normal), np.ones(n_intrusion)])
 
         # Detect intrusions
-        model = PSOD(
-            random_seed=random_seed,
-            contamination=0.1,
-            n_jobs=-1
-        )
+        model = PSOD(random_seed=random_seed, contamination=0.1, n_jobs=-1)
         y_pred = model.fit_predict(X, return_class=True)
 
         # Evaluate
         metrics = utils.evaluate_outlier_detection(y_true, y_pred)
 
-        assert metrics['recall'] > 0.3
+        assert metrics["recall"] > 0.3
 
     def test_sensor_anomaly_scenario(self, random_seed):
         """Simulate sensor anomaly detection workflow."""
@@ -479,11 +459,7 @@ class TestRealWorldScenarios:
         humidity[anomaly_indices] += np.random.choice([-30, 30], size=50)
 
         # Create DataFrame
-        X = pd.DataFrame({
-            'temperature': temperature,
-            'humidity': humidity,
-            'pressure': pressure
-        })
+        X = pd.DataFrame({"temperature": temperature, "humidity": humidity, "pressure": pressure})
 
         y_true = np.zeros(n_samples)
         y_true[anomaly_indices] = 1
@@ -495,7 +471,7 @@ class TestRealWorldScenarios:
         # Evaluate
         metrics = utils.evaluate_outlier_detection(y_true, y_pred)
 
-        assert metrics['recall'] > 0.2
+        assert metrics["recall"] > 0.2
 
     def test_quality_control_scenario(self, random_seed):
         """Simulate manufacturing quality control workflow."""
@@ -506,20 +482,24 @@ class TestRealWorldScenarios:
         n_defective = 50
 
         # Good products
-        good_products = pd.DataFrame({
-            'length': np.random.normal(100, 0.5, n_good),
-            'width': np.random.normal(50, 0.3, n_good),
-            'weight': np.random.normal(200, 2, n_good),
-            'thickness': np.random.normal(5, 0.1, n_good)
-        })
+        good_products = pd.DataFrame(
+            {
+                "length": np.random.normal(100, 0.5, n_good),
+                "width": np.random.normal(50, 0.3, n_good),
+                "weight": np.random.normal(200, 2, n_good),
+                "thickness": np.random.normal(5, 0.1, n_good),
+            }
+        )
 
         # Defective products
-        defective_products = pd.DataFrame({
-            'length': np.random.normal(100, 5, n_defective),  # High variation
-            'width': np.random.normal(50, 3, n_defective),
-            'weight': np.random.normal(200, 20, n_defective),
-            'thickness': np.random.normal(5, 1, n_defective)
-        })
+        defective_products = pd.DataFrame(
+            {
+                "length": np.random.normal(100, 5, n_defective),  # High variation
+                "width": np.random.normal(50, 3, n_defective),
+                "weight": np.random.normal(200, 20, n_defective),
+                "thickness": np.random.normal(5, 1, n_defective),
+            }
+        )
 
         # Combine
         X = pd.concat([good_products, defective_products], ignore_index=True)
@@ -533,7 +513,7 @@ class TestRealWorldScenarios:
         # Evaluate
         metrics = utils.evaluate_outlier_detection(y_true, y_pred)
 
-        assert metrics['recall'] > 0.3
+        assert metrics["recall"] > 0.3
 
         # Get feature importance for quality analysis
         importance = model.get_feature_importance()
@@ -543,6 +523,7 @@ class TestRealWorldScenarios:
 # ============================================================================
 # CROSS-VALIDATION AND MODEL SELECTION
 # ============================================================================
+
 
 @pytest.mark.integration
 class TestModelSelection:
@@ -559,25 +540,23 @@ class TestModelSelection:
             labels = model.fit_predict(outlier_data, return_class=True)
 
             outlier_count = np.sum(labels)
-            results.append({
-                'contamination': contamination,
-                'outlier_count': outlier_count,
-                'outlier_percentage': outlier_count / len(outlier_data)
-            })
+            results.append(
+                {
+                    "contamination": contamination,
+                    "outlier_count": outlier_count,
+                    "outlier_percentage": outlier_count / len(outlier_data),
+                }
+            )
 
         # Verify increasing contamination gives more outliers
-        counts = [r['outlier_count'] for r in results]
+        counts = [r["outlier_count"] for r in results]
         assert counts == sorted(counts)
 
     def test_base_learner_comparison(self, sample_numeric_data, random_seed):
         """Test workflow comparing different base learners."""
         from sklearn.linear_model import LinearRegression, Ridge, Lasso
 
-        learners = {
-            'LinearRegression': LinearRegression,
-            'Ridge': Ridge,
-            'Lasso': Lasso
-        }
+        learners = {"LinearRegression": LinearRegression, "Ridge": Ridge, "Lasso": Lasso}
 
         scores_dict = {}
 
@@ -592,7 +571,7 @@ class TestModelSelection:
 
     def test_transform_algorithm_comparison(self, sample_numeric_data):
         """Test workflow comparing transformation algorithms."""
-        transforms = ['none', 'logarithmic', 'yeo-johnson']
+        transforms = ["none", "logarithmic", "yeo-johnson"]
 
         results = {}
 
@@ -610,6 +589,7 @@ class TestModelSelection:
 # PIPELINE INTEGRATION TESTS
 # ============================================================================
 
+
 @pytest.mark.integration
 class TestPipelineIntegration:
     """Tests for sklearn pipeline integration."""
@@ -620,28 +600,27 @@ class TestPipelineIntegration:
         from sklearn.preprocessing import StandardScaler
 
         # Create pipeline
-        pipeline = Pipeline([
-            ('scaler', StandardScaler()),
-            ('psod', PSOD(random_seed=42, contamination=0.1))
-        ])
+        pipeline = Pipeline(
+            [("scaler", StandardScaler()), ("psod", PSOD(random_seed=42, contamination=0.1))]
+        )
 
         # Get parameters
         params = pipeline.get_params()
-        assert 'psod__contamination' in params
-        assert params['psod__contamination'] == 0.1
+        assert "psod__contamination" in params
+        assert params["psod__contamination"] == 0.1
 
         # Set parameters
         pipeline.set_params(psod__contamination=0.15)
-        assert pipeline.get_params()['psod__contamination'] == 0.15
+        assert pipeline.get_params()["psod__contamination"] == 0.15
 
     def test_end_to_end_pipeline(self, sample_numeric_data, tmp_path):
         """Test complete end-to-end pipeline."""
         # 1. Data validation
         validation = utils.validate_outlier_data(sample_numeric_data)
-        assert validation['is_valid']
+        assert validation["is_valid"]
 
         # 2. Handle any missing values
-        clean_data = utils.handle_missing_values(sample_numeric_data, strategy='mean')
+        clean_data = utils.handle_missing_values(sample_numeric_data, strategy="mean")
 
         # 3. Train model
         model = PSOD(random_seed=42, contamination=0.1)
@@ -659,7 +638,7 @@ class TestPipelineIntegration:
             assert explanation is not None
 
         # 6. Save model
-        model_path = tmp_path / 'final_model.pkl'
+        model_path = tmp_path / "final_model.pkl"
         model.save_model(str(model_path))
         assert model_path.exists()
 
@@ -672,11 +651,11 @@ class TestPipelineIntegration:
                 outlier_scores=scores,
                 outlier_labels=labels,
                 model=model,
-                save_path=str(tmp_path / 'report.png')
+                save_path=str(tmp_path / "report.png"),
             )
             plt.close(fig)
 
-            assert (tmp_path / 'report.png').exists()
+            assert (tmp_path / "report.png").exists()
 
 
 if __name__ == "__main__":

@@ -40,9 +40,7 @@ __version__ = "0.1.0"
 __author__ = "Diogo Ribeiro"
 __email__ = "dfr@esmad.ipp.pt"
 __license__ = "MIT"
-__description__ = (
-    "Pseudo-Supervised Outlier Detection library with comprehensive analysis tools"
-)
+__description__ = "Pseudo-Supervised Outlier Detection library with comprehensive analysis tools"
 
 # Set up logging for the package
 logging.getLogger(__name__).addHandler(logging.NullHandler())
@@ -413,6 +411,4 @@ elif not all([_CORE_AVAILABLE, _UTILS_AVAILABLE, _VISUALIZATION_AVAILABLE]):
         missing_modules.append("visualization")
 
     logger = logging.getLogger(__name__)
-    logger.warning(
-        f"PSOD v{__version__} loaded with missing modules: {missing_modules}"
-    )
+    logger.warning(f"PSOD v{__version__} loaded with missing modules: {missing_modules}")

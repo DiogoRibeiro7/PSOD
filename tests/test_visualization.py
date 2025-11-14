@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch, MagicMock
 import sys
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from psod import visualization as viz
 from psod import PSOD
@@ -21,6 +21,7 @@ from psod import PSOD
 # ============================================================================
 # STATIC VISUALIZATION TESTS (Matplotlib/Seaborn)
 # ============================================================================
+
 
 @pytest.mark.visualization
 @pytest.mark.unit
@@ -43,10 +44,7 @@ class TestPlotOutlierScores:
     def test_with_threshold(self, sample_outlier_scores):
         """Test plot with threshold line."""
         threshold = np.percentile(sample_outlier_scores, 90)
-        fig = viz.plot_outlier_scores(
-            scores=sample_outlier_scores,
-            threshold=threshold
-        )
+        fig = viz.plot_outlier_scores(scores=sample_outlier_scores, threshold=threshold)
 
         assert fig is not None
         plt.close(fig)
@@ -58,7 +56,7 @@ class TestPlotOutlierScores:
             threshold=2.5,
             bins=30,
             title="Custom Title",
-            figsize=(10, 6)
+            figsize=(10, 6),
         )
 
         assert fig is not None
@@ -113,16 +111,14 @@ class TestPlotOutlierScores:
 class TestCreateOutlierDashboard:
     """Tests for comprehensive 4x4 grid dashboard."""
 
-    def test_basic_dashboard_creation(self, sample_numeric_data,
-                                     sample_outlier_scores,
-                                     sample_predictions):
+    def test_basic_dashboard_creation(
+        self, sample_numeric_data, sample_outlier_scores, sample_predictions
+    ):
         """Test basic dashboard creation."""
         _, y_pred = sample_predictions
 
         fig = viz.create_outlier_dashboard(
-            X=sample_numeric_data,
-            outlier_scores=sample_outlier_scores,
-            outlier_labels=y_pred
+            X=sample_numeric_data, outlier_scores=sample_outlier_scores, outlier_labels=y_pred
         )
 
         assert fig is not None
@@ -134,10 +130,9 @@ class TestCreateOutlierDashboard:
 
         plt.close(fig)
 
-    def test_dashboard_with_model(self, sample_numeric_data,
-                                 fitted_psod_model,
-                                 sample_outlier_scores,
-                                 sample_predictions):
+    def test_dashboard_with_model(
+        self, sample_numeric_data, fitted_psod_model, sample_outlier_scores, sample_predictions
+    ):
         """Test dashboard with PSOD model integration."""
         _, y_pred = sample_predictions
 
@@ -145,16 +140,15 @@ class TestCreateOutlierDashboard:
             X=sample_numeric_data,
             outlier_scores=sample_outlier_scores,
             outlier_labels=y_pred,
-            model=fitted_psod_model
+            model=fitted_psod_model,
         )
 
         assert fig is not None
         plt.close(fig)
 
-    def test_dashboard_save(self, sample_numeric_data,
-                           sample_outlier_scores,
-                           sample_predictions,
-                           tmp_path):
+    def test_dashboard_save(
+        self, sample_numeric_data, sample_outlier_scores, sample_predictions, tmp_path
+    ):
         """Test dashboard saving to file."""
         _, y_pred = sample_predictions
         save_path = tmp_path / "test_dashboard.png"
@@ -163,34 +157,35 @@ class TestCreateOutlierDashboard:
             X=sample_numeric_data,
             outlier_scores=sample_outlier_scores,
             outlier_labels=y_pred,
-            save_path=str(save_path)
+            save_path=str(save_path),
         )
 
         assert save_path.exists()
         plt.close(fig)
 
-    def test_dashboard_with_categorical(self, sample_data_with_categorical,
-                                       sample_outlier_scores,
-                                       sample_predictions):
+    def test_dashboard_with_categorical(
+        self, sample_data_with_categorical, sample_outlier_scores, sample_predictions
+    ):
         """Test dashboard with categorical features."""
         _, y_pred = sample_predictions
         # Extend scores to match data length
-        scores = np.concatenate([
-            sample_outlier_scores,
-            np.random.randn(len(sample_data_with_categorical) - len(sample_outlier_scores))
-        ])
-        labels = np.concatenate([
-            y_pred,
-            np.zeros(len(sample_data_with_categorical) - len(y_pred))
-        ]).astype(int)
+        scores = np.concatenate(
+            [
+                sample_outlier_scores,
+                np.random.randn(len(sample_data_with_categorical) - len(sample_outlier_scores)),
+            ]
+        )
+        labels = np.concatenate(
+            [y_pred, np.zeros(len(sample_data_with_categorical) - len(y_pred))]
+        ).astype(int)
 
         # Select only numeric columns for dashboard
         numeric_data = sample_data_with_categorical.select_dtypes(include=[np.number])
 
         fig = viz.create_outlier_dashboard(
             X=numeric_data,
-            outlier_scores=scores[:len(numeric_data)],
-            outlier_labels=labels[:len(numeric_data)]
+            outlier_scores=scores[: len(numeric_data)],
+            outlier_labels=labels[: len(numeric_data)],
         )
 
         assert fig is not None
@@ -202,9 +197,7 @@ class TestCreateOutlierDashboard:
         labels = np.array([0, 0, 1])
 
         fig = viz.create_outlier_dashboard(
-            X=small_dataset,
-            outlier_scores=scores,
-            outlier_labels=labels
+            X=small_dataset, outlier_scores=scores, outlier_labels=labels
         )
 
         assert fig is not None
@@ -221,9 +214,7 @@ class TestPlotFeatureContributions:
         sample_idx = 0
 
         fig = viz.plot_feature_contributions(
-            model=fitted_psod_model,
-            X=sample_numeric_data,
-            sample_idx=sample_idx
+            model=fitted_psod_model, X=sample_numeric_data, sample_idx=sample_idx
         )
 
         assert fig is not None
@@ -232,23 +223,17 @@ class TestPlotFeatureContributions:
     def test_contributions_topk(self, sample_numeric_data, fitted_psod_model):
         """Test with top-k features."""
         fig = viz.plot_feature_contributions(
-            model=fitted_psod_model,
-            X=sample_numeric_data,
-            sample_idx=0,
-            top_k=5
+            model=fitted_psod_model, X=sample_numeric_data, sample_idx=0, top_k=5
         )
 
         assert fig is not None
         plt.close(fig)
 
-    def test_contributions_invalid_index(self, sample_numeric_data,
-                                        fitted_psod_model):
+    def test_contributions_invalid_index(self, sample_numeric_data, fitted_psod_model):
         """Test with invalid sample index."""
         with pytest.raises((IndexError, ValueError)):
             viz.plot_feature_contributions(
-                model=fitted_psod_model,
-                X=sample_numeric_data,
-                sample_idx=10000  # Out of bounds
+                model=fitted_psod_model, X=sample_numeric_data, sample_idx=10000  # Out of bounds
             )
 
 
@@ -261,23 +246,17 @@ class TestPlotCorrelationHeatmap:
         """Test basic correlation heatmap."""
         _, y_pred = sample_predictions
 
-        fig = viz.plot_correlation_heatmap(
-            X=sample_numeric_data,
-            outlier_labels=y_pred
-        )
+        fig = viz.plot_correlation_heatmap(X=sample_numeric_data, outlier_labels=y_pred)
 
         assert fig is not None
         plt.close(fig)
 
-    def test_heatmap_custom_figsize(self, sample_numeric_data,
-                                   sample_predictions):
+    def test_heatmap_custom_figsize(self, sample_numeric_data, sample_predictions):
         """Test heatmap with custom figure size."""
         _, y_pred = sample_predictions
 
         fig = viz.plot_correlation_heatmap(
-            X=sample_numeric_data,
-            outlier_labels=y_pred,
-            figsize=(10, 8)
+            X=sample_numeric_data, outlier_labels=y_pred, figsize=(10, 8)
         )
 
         assert fig is not None
@@ -287,23 +266,16 @@ class TestPlotCorrelationHeatmap:
         """Test heatmap with single feature."""
         labels = np.zeros(len(single_column_data))
 
-        fig = viz.plot_correlation_heatmap(
-            X=single_column_data,
-            outlier_labels=labels
-        )
+        fig = viz.plot_correlation_heatmap(X=single_column_data, outlier_labels=labels)
 
         assert fig is not None
         plt.close(fig)
 
-    def test_heatmap_correlated_features(self, correlated_features_data,
-                                        sample_predictions):
+    def test_heatmap_correlated_features(self, correlated_features_data, sample_predictions):
         """Test heatmap with highly correlated features."""
         _, y_pred = sample_predictions
 
-        fig = viz.plot_correlation_heatmap(
-            X=correlated_features_data,
-            outlier_labels=y_pred
-        )
+        fig = viz.plot_correlation_heatmap(X=correlated_features_data, outlier_labels=y_pred)
 
         assert fig is not None
         plt.close(fig)
@@ -318,10 +290,7 @@ class TestPlotROCPRCurves:
         """Test basic ROC/PR curve creation."""
         y_true, _ = sample_predictions
 
-        fig = viz.plot_roc_pr_curves(
-            y_true=y_true,
-            y_scores=sample_outlier_scores
-        )
+        fig = viz.plot_roc_pr_curves(y_true=y_true, y_scores=sample_outlier_scores)
 
         assert fig is not None
 
@@ -331,15 +300,12 @@ class TestPlotROCPRCurves:
 
         plt.close(fig)
 
-    def test_curves_custom_title(self, sample_predictions,
-                                sample_outlier_scores):
+    def test_curves_custom_title(self, sample_predictions, sample_outlier_scores):
         """Test with custom title."""
         y_true, _ = sample_predictions
 
         fig = viz.plot_roc_pr_curves(
-            y_true=y_true,
-            y_scores=sample_outlier_scores,
-            title="Custom Performance Curves"
+            y_true=y_true, y_scores=sample_outlier_scores, title="Custom Performance Curves"
         )
 
         assert fig is not None
@@ -376,37 +342,28 @@ class TestPlotFeatureDistributions:
         """Test basic feature distribution plot."""
         _, y_pred = sample_predictions
 
-        fig = viz.plot_feature_distributions(
-            X=sample_numeric_data,
-            outlier_labels=y_pred
-        )
+        fig = viz.plot_feature_distributions(X=sample_numeric_data, outlier_labels=y_pred)
 
         assert fig is not None
         plt.close(fig)
 
-    def test_distributions_max_features(self, sample_numeric_data,
-                                       sample_predictions):
+    def test_distributions_max_features(self, sample_numeric_data, sample_predictions):
         """Test with max_features parameter."""
         _, y_pred = sample_predictions
 
         fig = viz.plot_feature_distributions(
-            X=sample_numeric_data,
-            outlier_labels=y_pred,
-            max_features=6
+            X=sample_numeric_data, outlier_labels=y_pred, max_features=6
         )
 
         assert fig is not None
         plt.close(fig)
 
-    def test_distributions_custom_figsize(self, sample_numeric_data,
-                                         sample_predictions):
+    def test_distributions_custom_figsize(self, sample_numeric_data, sample_predictions):
         """Test with custom figure size."""
         _, y_pred = sample_predictions
 
         fig = viz.plot_feature_distributions(
-            X=sample_numeric_data,
-            outlier_labels=y_pred,
-            figsize=(20, 15)
+            X=sample_numeric_data, outlier_labels=y_pred, figsize=(20, 15)
         )
 
         assert fig is not None
@@ -416,10 +373,7 @@ class TestPlotFeatureDistributions:
         """Test with single feature."""
         labels = np.zeros(len(single_column_data))
 
-        fig = viz.plot_feature_distributions(
-            X=single_column_data,
-            outlier_labels=labels
-        )
+        fig = viz.plot_feature_distributions(X=single_column_data, outlier_labels=labels)
 
         assert fig is not None
         plt.close(fig)
@@ -428,10 +382,7 @@ class TestPlotFeatureDistributions:
         """Test when all samples are outliers."""
         labels = np.ones(len(sample_numeric_data))
 
-        fig = viz.plot_feature_distributions(
-            X=sample_numeric_data,
-            outlier_labels=labels
-        )
+        fig = viz.plot_feature_distributions(X=sample_numeric_data, outlier_labels=labels)
 
         assert fig is not None
         plt.close(fig)
@@ -440,10 +391,7 @@ class TestPlotFeatureDistributions:
         """Test when no samples are outliers."""
         labels = np.zeros(len(sample_numeric_data))
 
-        fig = viz.plot_feature_distributions(
-            X=sample_numeric_data,
-            outlier_labels=labels
-        )
+        fig = viz.plot_feature_distributions(X=sample_numeric_data, outlier_labels=labels)
 
         assert fig is not None
         plt.close(fig)
@@ -461,12 +409,9 @@ class TestPlotOutlierEvolutionHeatmap:
             sample_outlier_scores + np.random.randn(len(sample_outlier_scores)) * 0.1
             for _ in range(5)
         ]
-        labels = [f'Iter {i+1}' for i in range(5)]
+        labels = [f"Iter {i+1}" for i in range(5)]
 
-        fig = viz.plot_outlier_evolution_heatmap(
-            scores_history=scores_history,
-            labels=labels
-        )
+        fig = viz.plot_outlier_evolution_heatmap(scores_history=scores_history, labels=labels)
 
         assert fig is not None
         plt.close(fig)
@@ -474,12 +419,10 @@ class TestPlotOutlierEvolutionHeatmap:
     def test_heatmap_custom_figsize(self, sample_outlier_scores):
         """Test with custom figure size."""
         scores_history = [sample_outlier_scores for _ in range(3)]
-        labels = ['A', 'B', 'C']
+        labels = ["A", "B", "C"]
 
         fig = viz.plot_outlier_evolution_heatmap(
-            scores_history=scores_history,
-            labels=labels,
-            figsize=(12, 8)
+            scores_history=scores_history, labels=labels, figsize=(12, 8)
         )
 
         assert fig is not None
@@ -488,12 +431,9 @@ class TestPlotOutlierEvolutionHeatmap:
     def test_heatmap_single_iteration(self, sample_outlier_scores):
         """Test with single iteration."""
         scores_history = [sample_outlier_scores]
-        labels = ['Single']
+        labels = ["Single"]
 
-        fig = viz.plot_outlier_evolution_heatmap(
-            scores_history=scores_history,
-            labels=labels
-        )
+        fig = viz.plot_outlier_evolution_heatmap(scores_history=scores_history, labels=labels)
 
         assert fig is not None
         plt.close(fig)
@@ -501,14 +441,11 @@ class TestPlotOutlierEvolutionHeatmap:
     def test_heatmap_mismatched_labels(self, sample_outlier_scores):
         """Test with mismatched labels and scores."""
         scores_history = [sample_outlier_scores for _ in range(3)]
-        labels = ['A', 'B']  # Only 2 labels for 3 iterations
+        labels = ["A", "B"]  # Only 2 labels for 3 iterations
 
         # Should either handle gracefully or raise error
         try:
-            fig = viz.plot_outlier_evolution_heatmap(
-                scores_history=scores_history,
-                labels=labels
-            )
+            fig = viz.plot_outlier_evolution_heatmap(scores_history=scores_history, labels=labels)
             plt.close(fig)
         except (ValueError, AssertionError):
             pass  # Expected behavior
@@ -517,6 +454,7 @@ class TestPlotOutlierEvolutionHeatmap:
 # ============================================================================
 # INTERACTIVE VISUALIZATION TESTS (Plotly)
 # ============================================================================
+
 
 @pytest.mark.visualization
 @pytest.mark.requires_deps
@@ -534,7 +472,7 @@ class TestPlotOutliersScatter:
             X=sample_numeric_data,
             outlier_labels=y_pred,
             features=list(sample_numeric_data.columns[:2]),
-            dim=2
+            dim=2,
         )
 
         assert fig is not None
@@ -549,7 +487,7 @@ class TestPlotOutliersScatter:
             X=sample_numeric_data,
             outlier_labels=y_pred,
             features=list(sample_numeric_data.columns[:3]),
-            dim=3
+            dim=3,
         )
 
         assert fig is not None
@@ -561,16 +499,12 @@ class TestPlotOutliersScatter:
         _, y_pred = sample_predictions
 
         fig = viz.plot_outliers_scatter(
-            X=sample_numeric_data,
-            outlier_labels=y_pred,
-            dim=2,
-            use_pca=True
+            X=sample_numeric_data, outlier_labels=y_pred, dim=2, use_pca=True
         )
 
         assert fig is not None
 
-    def test_scatter_save_html(self, sample_numeric_data, sample_predictions,
-                              tmp_path):
+    def test_scatter_save_html(self, sample_numeric_data, sample_predictions, tmp_path):
         """Test saving scatter plot to HTML."""
         pytest.importorskip("plotly")
 
@@ -578,10 +512,7 @@ class TestPlotOutliersScatter:
         save_path = tmp_path / "scatter.html"
 
         fig = viz.plot_outliers_scatter(
-            X=sample_numeric_data,
-            outlier_labels=y_pred,
-            dim=2,
-            use_pca=True
+            X=sample_numeric_data, outlier_labels=y_pred, dim=2, use_pca=True
         )
 
         fig.write_html(str(save_path))
@@ -602,9 +533,7 @@ class TestPlotTimeseriesOutliers:
         outlier_labels[[50, 75, 120]] = 1  # Mark some as outliers
 
         fig = viz.plot_timeseries_outliers(
-            X=time_series_data,
-            outlier_labels=outlier_labels,
-            time_column='timestamp'
+            X=time_series_data, outlier_labels=outlier_labels, time_column="timestamp"
         )
 
         assert fig is not None
@@ -618,8 +547,8 @@ class TestPlotTimeseriesOutliers:
         fig = viz.plot_timeseries_outliers(
             X=time_series_data,
             outlier_labels=outlier_labels,
-            time_column='timestamp',
-            value_columns=['value', 'feature_2']
+            time_column="timestamp",
+            value_columns=["value", "feature_2"],
         )
 
         assert fig is not None
@@ -633,8 +562,8 @@ class TestPlotTimeseriesOutliers:
         fig = viz.plot_timeseries_outliers(
             X=time_series_data,
             outlier_labels=outlier_labels,
-            time_column='timestamp',
-            title="Custom Time Series Plot"
+            time_column="timestamp",
+            title="Custom Time Series Plot",
         )
 
         assert fig is not None
@@ -654,12 +583,9 @@ class TestPlotScoreEvolution:
             sample_outlier_scores + np.random.randn(len(sample_outlier_scores)) * 0.1
             for _ in range(5)
         ]
-        labels = [f'Model {i+1}' for i in range(5)]
+        labels = [f"Model {i+1}" for i in range(5)]
 
-        fig = viz.plot_score_evolution(
-            scores_history=scores_history,
-            labels=labels
-        )
+        fig = viz.plot_score_evolution(scores_history=scores_history, labels=labels)
 
         assert fig is not None
 
@@ -668,13 +594,10 @@ class TestPlotScoreEvolution:
         pytest.importorskip("plotly")
 
         scores_history = [sample_outlier_scores for _ in range(3)]
-        labels = ['A', 'B', 'C']
+        labels = ["A", "B", "C"]
         save_path = tmp_path / "evolution.html"
 
-        fig = viz.plot_score_evolution(
-            scores_history=scores_history,
-            labels=labels
-        )
+        fig = viz.plot_score_evolution(scores_history=scores_history, labels=labels)
 
         fig.write_html(str(save_path))
         assert save_path.exists()
@@ -684,12 +607,9 @@ class TestPlotScoreEvolution:
         pytest.importorskip("plotly")
 
         scores_history = [sample_outlier_scores]
-        labels = ['Single']
+        labels = ["Single"]
 
-        fig = viz.plot_score_evolution(
-            scores_history=scores_history,
-            labels=labels
-        )
+        fig = viz.plot_score_evolution(scores_history=scores_history, labels=labels)
 
         assert fig is not None
 
@@ -705,17 +625,14 @@ class TestCreateInteractiveExplorer:
         pytest.importorskip("dash")
 
         # Mock the Dash app to avoid actually starting server
-        with patch('psod.visualization.dash.Dash') as mock_dash:
+        with patch("psod.visualization.dash.Dash") as mock_dash:
             mock_app = MagicMock()
             mock_dash.return_value = mock_app
 
             # This should create the app but not run it
             try:
                 viz.create_interactive_explorer(
-                    X=sample_numeric_data,
-                    model=fitted_psod_model,
-                    port=8050,
-                    debug=False
+                    X=sample_numeric_data, model=fitted_psod_model, port=8050, debug=False
                 )
             except Exception as e:
                 # If it fails, it might be trying to run the server
@@ -727,6 +644,7 @@ class TestCreateInteractiveExplorer:
         # If dash is not available, should handle gracefully
         try:
             import dash
+
             has_dash = True
         except ImportError:
             has_dash = False
@@ -739,6 +657,7 @@ class TestCreateInteractiveExplorer:
 # ============================================================================
 # EDGE CASES AND ERROR HANDLING
 # ============================================================================
+
 
 @pytest.mark.visualization
 @pytest.mark.unit
@@ -753,11 +672,7 @@ class TestVisualizationEdgeCases:
 
         # Should handle gracefully or raise informative error
         with pytest.raises((ValueError, IndexError)):
-            viz.create_outlier_dashboard(
-                X=empty_df,
-                outlier_scores=scores,
-                outlier_labels=labels
-            )
+            viz.create_outlier_dashboard(X=empty_df, outlier_scores=scores, outlier_labels=labels)
 
     def test_mismatched_lengths(self, sample_numeric_data):
         """Test with mismatched data and score lengths."""
@@ -767,9 +682,7 @@ class TestVisualizationEdgeCases:
         # Should raise error about length mismatch
         with pytest.raises((ValueError, AssertionError)):
             viz.create_outlier_dashboard(
-                X=sample_numeric_data,
-                outlier_scores=scores,
-                outlier_labels=labels
+                X=sample_numeric_data, outlier_scores=scores, outlier_labels=labels
             )
 
     def test_nan_in_scores(self, sample_numeric_data):
@@ -806,7 +719,7 @@ class TestVisualizationEdgeCases:
             viz.create_outlier_dashboard(
                 X=sample_numeric_data,
                 outlier_scores=sample_outlier_scores,
-                outlier_labels=invalid_labels
+                outlier_labels=invalid_labels,
             )
 
 
@@ -814,13 +727,13 @@ class TestVisualizationEdgeCases:
 # INTEGRATION TESTS
 # ============================================================================
 
+
 @pytest.mark.visualization
 @pytest.mark.integration
 class TestVisualizationIntegration:
     """Integration tests combining multiple visualizations."""
 
-    def test_complete_visualization_workflow(self, sample_numeric_data,
-                                            random_seed):
+    def test_complete_visualization_workflow(self, sample_numeric_data, random_seed):
         """Test complete workflow from model to all visualizations."""
         # Fit model
         model = PSOD(random_seed=random_seed, contamination=0.1)
@@ -832,32 +745,22 @@ class TestVisualizationIntegration:
         plt.close(fig1)
 
         fig2 = viz.create_outlier_dashboard(
-            X=sample_numeric_data,
-            outlier_scores=scores,
-            outlier_labels=predictions,
-            model=model
+            X=sample_numeric_data, outlier_scores=scores, outlier_labels=predictions, model=model
         )
         plt.close(fig2)
 
-        fig3 = viz.plot_feature_distributions(
-            X=sample_numeric_data,
-            outlier_labels=predictions
-        )
+        fig3 = viz.plot_feature_distributions(X=sample_numeric_data, outlier_labels=predictions)
         plt.close(fig3)
 
-        fig4 = viz.plot_correlation_heatmap(
-            X=sample_numeric_data,
-            outlier_labels=predictions
-        )
+        fig4 = viz.plot_correlation_heatmap(X=sample_numeric_data, outlier_labels=predictions)
         plt.close(fig4)
 
         # All should succeed
         assert True
 
-    def test_save_all_visualizations(self, sample_numeric_data,
-                                    sample_outlier_scores,
-                                    sample_predictions,
-                                    tmp_path):
+    def test_save_all_visualizations(
+        self, sample_numeric_data, sample_outlier_scores, sample_predictions, tmp_path
+    ):
         """Test saving all visualization types."""
         _, y_pred = sample_predictions
 
@@ -870,7 +773,7 @@ class TestVisualizationIntegration:
             X=sample_numeric_data,
             outlier_scores=sample_outlier_scores,
             outlier_labels=y_pred,
-            save_path=str(tmp_path / "dashboard.png")
+            save_path=str(tmp_path / "dashboard.png"),
         )
         plt.close(fig2)
 

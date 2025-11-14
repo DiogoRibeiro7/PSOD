@@ -172,9 +172,7 @@ class PSOD(BaseEstimator):
         if self.min_cols_chosen > self.max_cols_chosen:
             raise ValueError("min_cols_chosen cannot be higher than max_cols_chosen.")
         if self.flag_outlier_on not in ["low end", "both ends", "high end"]:
-            raise ValueError(
-                'flag_outlier_on must be one of ["low end", "both ends", "high end"].'
-            )
+            raise ValueError('flag_outlier_on must be one of ["low end", "both ends", "high end"].')
         if not (0 < self.contamination < 1):
             raise ValueError("contamination must be between 0 and 1.")
         if self.min_samples < 1:
@@ -211,9 +209,7 @@ class PSOD(BaseEstimator):
         # Add validation for missing_value_strategy
         valid_missing_strategies = ["mean", "median", "mode", "knn", "drop", None]
         if self.missing_value_strategy not in valid_missing_strategies:
-            raise ValueError(
-                f"missing_value_strategy must be one of {valid_missing_strategies}."
-            )
+            raise ValueError(f"missing_value_strategy must be one of {valid_missing_strategies}.")
 
     def __str__(self):
         """String representation of PSOD object."""
@@ -304,9 +300,7 @@ class PSOD(BaseEstimator):
         )
         return self.random_generator.choice(df.columns, nb_cols, replace=False).tolist()
 
-    def correlation_feature_selection(
-        self, df: pd.DataFrame, target_col: str
-    ) -> List[str]:
+    def correlation_feature_selection(self, df: pd.DataFrame, target_col: str) -> List[str]:
         """
         Select columns based on correlation with target column.
 
@@ -326,8 +320,7 @@ class PSOD(BaseEstimator):
         return [
             col
             for col in numerical_cols
-            if col != target_col
-            and abs(df[col].corr(df[target_col])) > self.correlation_threshold
+            if col != target_col and abs(df[col].corr(df[target_col])) > self.correlation_threshold
         ]
 
     def col_intersection(self, lst1: List[str], lst2: List[str]) -> List[str]:
@@ -348,9 +341,7 @@ class PSOD(BaseEstimator):
         """
         return np.intersect1d(lst1, lst2).tolist()
 
-    def make_outlier_classes(
-        self, df_scores: pd.DataFrame, use_trained_stats=True
-    ) -> pd.Series:
+    def make_outlier_classes(self, df_scores: pd.DataFrame, use_trained_stats=True) -> pd.Series:
         """Convert outlier scores to binary labels."""
         if not use_trained_stats:
             mean_score = df_scores["anomaly"].mean()
@@ -374,9 +365,7 @@ class PSOD(BaseEstimator):
                 + self.stdevs_to_outlier * self.pred_distribution_stats["std_score"]
             )
 
-        df_scores["anomaly_class"] = np.select(
-            conditions, [1] * len(conditions), default=0
-        )
+        df_scores["anomaly_class"] = np.select(conditions, [1] * len(conditions), default=0)
         self.outlier_classes = df_scores["anomaly_class"]
         return df_scores["anomaly_class"]
 
@@ -431,9 +420,7 @@ class PSOD(BaseEstimator):
             # Box-Cox requires positive values
             df_min = df.min().min()
             if df_min <= 0:
-                warnings.warn(
-                    "Box-Cox transformation requires positive values. Adding offset."
-                )
+                warnings.warn("Box-Cox transformation requires positive values. Adding offset.")
                 df = df - df_min + 1
             scaler = PowerTransformer(method="box-cox")
             df_transformed = scaler.fit_transform(df)
@@ -452,9 +439,7 @@ class PSOD(BaseEstimator):
             return df
 
         else:
-            raise ValueError(
-                f"Unknown transformation algorithm: {self.transform_algorithm}"
-            )
+            raise ValueError(f"Unknown transformation algorithm: {self.transform_algorithm}")
 
     def transform_numeric_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -521,9 +506,7 @@ class PSOD(BaseEstimator):
 
         # Check for missing values
         if df.isnull().any().any():
-            logger.warning(
-                "Missing values detected. Consider imputation before fitting."
-            )
+            logger.warning("Missing values detected. Consider imputation before fitting.")
 
         # Check data types
         if not df.select_dtypes(include=[np.number]).shape[1]:
@@ -533,9 +516,7 @@ class PSOD(BaseEstimator):
         if self.cat_columns:
             missing_cat_cols = set(self.cat_columns) - set(df.columns)
             if missing_cat_cols:
-                raise ValueError(
-                    f"Categorical columns not found in DataFrame: {missing_cat_cols}"
-                )
+                raise ValueError(f"Categorical columns not found in DataFrame: {missing_cat_cols}")
 
         # Check during prediction that features match training
         if self._is_fitted and self.feature_names_:
@@ -545,9 +526,7 @@ class PSOD(BaseEstimator):
 
         logger.debug(f"Input validation passed. DataFrame shape: {df.shape}")
 
-    def _handle_missing_values(
-        self, df: pd.DataFrame, is_training: bool = True
-    ) -> pd.DataFrame:
+    def _handle_missing_values(self, df: pd.DataFrame, is_training: bool = True) -> pd.DataFrame:
         """
         Handle missing values according to the specified strategy.
 
@@ -613,9 +592,7 @@ class PSOD(BaseEstimator):
                 if self.imputer_ is not None:
                     df_imputed[numeric_cols] = self.imputer_.transform(df[numeric_cols])
                 else:
-                    logger.warning(
-                        "Imputer not fitted during training. Using mean imputation."
-                    )
+                    logger.warning("Imputer not fitted during training. Using mean imputation.")
                     imputer = SimpleImputer(strategy="mean")
                     df_imputed[numeric_cols] = imputer.fit_transform(df[numeric_cols])
 
@@ -748,9 +725,7 @@ class PSOD(BaseEstimator):
             .reset_index(drop=True)
         )
 
-        logger.debug(
-            f"Calculated feature importances for {len(combined_importance)} features"
-        )
+        logger.debug(f"Calculated feature importances for {len(combined_importance)} features")
 
     def fit_predict(self, df: pd.DataFrame, return_class: bool = False) -> pd.Series:
         """
@@ -781,9 +756,7 @@ class PSOD(BaseEstimator):
         self.n_features_in_ = len(df.columns)
 
         if isinstance(self.cat_columns, list):
-            self.cols_with_var = self.remove_zero_variance(
-                df.drop(self.cat_columns, axis=1)
-            )
+            self.cols_with_var = self.remove_zero_variance(df.drop(self.cat_columns, axis=1))
             df = df.loc[:, self.cols_with_var + self.cat_columns]
         else:
             self.cols_with_var = self.remove_zero_variance(df)
@@ -820,25 +793,19 @@ class PSOD(BaseEstimator):
             corr_cols = self.col_intersection(corr_cols, chosen_columns)
             chosen_columns = corr_cols if corr_cols else chosen_columns
 
-            idx = df_scores.sample(
-                frac=self.sample_frac, random_state=enum, replace=True
-            ).index
+            idx = df_scores.sample(frac=self.sample_frac, random_state=enum, replace=True).index
 
             cat_encoder = None
             if isinstance(self.cat_columns, list):
                 cat_encoder = self.cat_encoder(cols=chosen_cat_cols)
-                cat_encoder.fit(
-                    temp_df.loc[idx, chosen_cat_cols], temp_df.loc[idx, col]
-                ) if self.cat_encode_on_sample else cat_encoder.fit(
-                    temp_df[chosen_cat_cols], temp_df[col]
+                (
+                    cat_encoder.fit(temp_df.loc[idx, chosen_cat_cols], temp_df.loc[idx, col])
+                    if self.cat_encode_on_sample
+                    else cat_encoder.fit(temp_df[chosen_cat_cols], temp_df[col])
                 )
-                transformed_cat_cols = cat_encoder.transform(
-                    temp_df[chosen_cat_cols], temp_df[col]
-                )
+                transformed_cat_cols = cat_encoder.transform(temp_df[chosen_cat_cols], temp_df[col])
                 temp_df = temp_df.drop(columns=chosen_cat_cols).reset_index(drop=True)
-                temp_df = pd.concat(
-                    [temp_df, transformed_cat_cols.reset_index(drop=True)], axis=1
-                )
+                temp_df = pd.concat([temp_df, transformed_cat_cols.reset_index(drop=True)], axis=1)
 
             # Fit regressor
             if "n_jobs" in self.base_learner().get_params().keys():
@@ -854,9 +821,7 @@ class PSOD(BaseEstimator):
             prediction_error = abs(temp_df[col] - predictions)
             overall_error = prediction_error.mean()
             normalized_error = (
-                prediction_error / overall_error
-                if overall_error > 0
-                else prediction_error
+                prediction_error / overall_error if overall_error > 0 else prediction_error
             )
 
             return (
@@ -908,9 +873,7 @@ class PSOD(BaseEstimator):
         self._is_fitted = True
 
         # Log fitting completion
-        outlier_count = sum(
-            self.make_outlier_classes(df_scores, use_trained_stats=False) == 1
-        )
+        outlier_count = sum(self.make_outlier_classes(df_scores, use_trained_stats=False) == 1)
         logger.info(
             f"Fitting completed. Detected {outlier_count} outliers out of {len(df)} samples."
         )
@@ -960,8 +923,7 @@ class PSOD(BaseEstimator):
 
         df = df.loc[
             :,
-            self.cols_with_var
-            + (self.cat_columns if isinstance(self.cat_columns, list) else []),
+            self.cols_with_var + (self.cat_columns if isinstance(self.cat_columns, list) else []),
         ]
         df_scores = df.copy()
 
@@ -998,20 +960,14 @@ class PSOD(BaseEstimator):
                     logger.warning(f"No chosen columns found for {col}. Skipping prediction.")
                     continue
 
-                predictions = self.regressors[col].predict(
-                    temp_df[self.chosen_columns[col]]
-                )
+                predictions = self.regressors[col].predict(temp_df[self.chosen_columns[col]])
                 prediction_error = abs(temp_df[col] - predictions)
                 overall_error = prediction_error.mean()
                 df_scores[col] = (
-                    prediction_error / overall_error
-                    if overall_error > 0
-                    else prediction_error
+                    prediction_error / overall_error if overall_error > 0 else prediction_error
                 )
             except Exception as e:
-                logger.error(
-                    f"Error predicting for column {col}: {str(e)}. Using zero scores."
-                )
+                logger.error(f"Error predicting for column {col}: {str(e)}. Using zero scores.")
                 df_scores[col] = 0.0
                 continue
 
@@ -1118,18 +1074,14 @@ class PSOD(BaseEstimator):
 
             # Validate model data structure
             if not isinstance(model_data, dict) or "model" not in model_data:
-                raise ValueError(
-                    "Invalid model file format. Expected dictionary with 'model' key."
-                )
+                raise ValueError("Invalid model file format. Expected dictionary with 'model' key.")
 
             model = model_data["model"]
             metadata = model_data.get("metadata", {})
 
             # Validate that the loaded object is a PSOD instance
             if not isinstance(model, cls):
-                raise ValueError(
-                    f"Loaded model is not a PSOD instance. Got {type(model)}"
-                )
+                raise ValueError(f"Loaded model is not a PSOD instance. Got {type(model)}")
 
             # Validate that the model is fitted
             if not model._is_fitted:
@@ -1304,9 +1256,7 @@ class PSOD(BaseEstimator):
             f"New stdevs_to_outlier={self.stdevs_to_outlier:.3f}"
         )
 
-    def explain_outlier(
-        self, df: pd.DataFrame, sample_idx: int, top_k: int = 5
-    ) -> Dict[str, Any]:
+    def explain_outlier(self, df: pd.DataFrame, sample_idx: int, top_k: int = 5) -> Dict[str, Any]:
         """
         Explain why a sample is considered an outlier.
 
@@ -1362,8 +1312,7 @@ class PSOD(BaseEstimator):
         # Apply the same column filtering as during fitting/prediction
         df_temp = df_temp.loc[
             :,
-            self.cols_with_var
-            + (self.cat_columns if isinstance(self.cat_columns, list) else []),
+            self.cols_with_var + (self.cat_columns if isinstance(self.cat_columns, list) else []),
         ]
 
         # Apply numeric transformations
@@ -1378,9 +1327,7 @@ class PSOD(BaseEstimator):
             try:
                 temp_df = df_temp.copy()
                 chosen_cat_cols = (
-                    self.col_intersection(
-                        self.cat_columns, self.chosen_columns[col]
-                    )
+                    self.col_intersection(self.cat_columns, self.chosen_columns[col])
                     if isinstance(self.cat_columns, list)
                     else []
                 )
@@ -1389,9 +1336,7 @@ class PSOD(BaseEstimator):
                     transformed_cat_cols = self.cat_encoders[col].transform(
                         temp_df[chosen_cat_cols]
                     )
-                    temp_df = temp_df.drop(columns=chosen_cat_cols).reset_index(
-                        drop=True
-                    )
+                    temp_df = temp_df.drop(columns=chosen_cat_cols).reset_index(drop=True)
                     temp_df = pd.concat(
                         [temp_df, transformed_cat_cols.reset_index(drop=True)],
                         axis=1,
@@ -1411,9 +1356,7 @@ class PSOD(BaseEstimator):
                 feature_contributions[col] = float(prediction_error)
 
             except Exception as e:
-                logger.warning(
-                    f"Could not calculate contribution for feature {col}: {str(e)}"
-                )
+                logger.warning(f"Could not calculate contribution for feature {col}: {str(e)}")
                 continue
 
         # Sort by contribution

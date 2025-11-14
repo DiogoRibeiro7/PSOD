@@ -17,11 +17,7 @@ from sklearn.preprocessing import StandardScaler
 import sys
 
 # Import benchmark modules
-from datasets import (
-    get_benchmark_datasets,
-    generate_dataset,
-    generate_scalability_datasets
-)
+from datasets import get_benchmark_datasets, generate_dataset, generate_scalability_datasets
 from methods import get_all_methods, get_method_subset
 from metrics import (
     compute_metrics,
@@ -29,7 +25,7 @@ from metrics import (
     compute_roc_curve_data,
     compute_pr_curve_data,
     compare_methods,
-    aggregate_metrics
+    aggregate_metrics,
 )
 from visualization import (
     plot_method_comparison,
@@ -41,16 +37,16 @@ from visualization import (
     plot_precision_recall_curves,
     plot_memory_usage,
     plot_radar_chart,
-    create_benchmark_dashboard
+    create_benchmark_dashboard,
 )
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 class BenchmarkRunner:
     """Main benchmark runner class."""
 
-    def __init__(self, random_state: int = 42, output_dir: str = 'benchmark_results'):
+    def __init__(self, random_state: int = 42, output_dir: str = "benchmark_results"):
         """
         Initialize benchmark runner.
 
@@ -77,7 +73,7 @@ class BenchmarkRunner:
         X_test: np.ndarray,
         y_test: np.ndarray,
         contamination: float,
-        track_memory: bool = True
+        track_memory: bool = True,
     ) -> Dict:
         """
         Benchmark a single method on a dataset.
@@ -105,7 +101,7 @@ class BenchmarkRunner:
         method_name = method_wrapper.name
         print(f"\n  Benchmarking {method_name}...")
 
-        results = {'method': method_name}
+        results = {"method": method_name}
 
         try:
             # Start memory tracking
@@ -147,17 +143,19 @@ class BenchmarkRunner:
             metrics = compute_metrics(y_test, y_scores, y_pred, contamination)
 
             # Compile results
-            results.update({
-                'train_time': train_time,
-                'pred_time': pred_time,
-                'total_time': train_time + pred_time,
-                **metrics
-            })
+            results.update(
+                {
+                    "train_time": train_time,
+                    "pred_time": pred_time,
+                    "total_time": train_time + pred_time,
+                    **metrics,
+                }
+            )
 
             if track_memory:
-                results['memory_train_mb'] = memory_train
-                results['memory_pred_mb'] = memory_pred
-                results['memory_total_mb'] = memory_train + memory_pred
+                results["memory_train_mb"] = memory_train
+                results["memory_pred_mb"] = memory_pred
+                results["memory_total_mb"] = memory_train + memory_pred
 
             # Print summary
             print(f"    Training time: {train_time:.3f}s")
@@ -169,22 +167,24 @@ class BenchmarkRunner:
 
         except Exception as e:
             print(f"    ERROR: {str(e)}")
-            results.update({
-                'train_time': np.nan,
-                'pred_time': np.nan,
-                'total_time': np.nan,
-                'roc_auc': np.nan,
-                'avg_precision': np.nan,
-                'error': str(e)
-            })
+            results.update(
+                {
+                    "train_time": np.nan,
+                    "pred_time": np.nan,
+                    "total_time": np.nan,
+                    "roc_auc": np.nan,
+                    "avg_precision": np.nan,
+                    "error": str(e),
+                }
+            )
 
         return results
 
     def benchmark_datasets(
         self,
         dataset_names: Optional[List[str]] = None,
-        method_subset: str = 'basic',
-        test_size: float = 0.3
+        method_subset: str = "basic",
+        test_size: float = 0.3,
     ) -> pd.DataFrame:
         """
         Benchmark methods on multiple datasets.
@@ -223,7 +223,9 @@ class BenchmarkRunner:
             # Generate dataset
             X, y = generate_dataset(dataset_config, random_state=self.random_state)
 
-            print(f"Samples: {len(X)}, Features: {X.shape[1]}, Outliers: {np.sum(y)} ({np.sum(y)/len(y)*100:.1f}%)")
+            print(
+                f"Samples: {len(X)}, Features: {X.shape[1]}, Outliers: {np.sum(y)} ({np.sum(y)/len(y)*100:.1f}%)"
+            )
 
             # Split data
             X_train, X_test, y_train, y_test = train_test_split(
@@ -235,7 +237,7 @@ class BenchmarkRunner:
             X_train_scaled = scaler.fit_transform(X_train)
             X_test_scaled = scaler.transform(X_test)
 
-            contamination = dataset_config.get('contamination', 0.1)
+            contamination = dataset_config.get("contamination", 0.1)
 
             # Get methods
             methods = get_method_subset(method_subset, contamination, self.random_state)
@@ -247,26 +249,18 @@ class BenchmarkRunner:
             # Benchmark each method
             for method_name, method_wrapper in methods.items():
                 result = self.benchmark_method(
-                    method_wrapper,
-                    X_train_scaled,
-                    X_test_scaled,
-                    y_test,
-                    contamination
+                    method_wrapper, X_train_scaled, X_test_scaled, y_test, contamination
                 )
-                result['dataset'] = dataset_name
-                result['n_samples'] = len(X)
-                result['n_features'] = X.shape[1]
-                result['contamination'] = contamination
+                result["dataset"] = dataset_name
+                result["n_samples"] = len(X)
+                result["n_features"] = X.shape[1]
+                result["contamination"] = contamination
                 all_results.append(result)
 
         self.results.extend(all_results)
         return pd.DataFrame(all_results)
 
-    def benchmark_scalability(
-        self,
-        method_subset: str = 'fast',
-        n_trials: int = 3
-    ) -> Dict:
+    def benchmark_scalability(self, method_subset: str = "fast", n_trials: int = 3) -> Dict:
         """
         Test scalability with increasing data size.
 
@@ -287,14 +281,14 @@ class BenchmarkRunner:
         print("=" * 70)
 
         scalability_datasets = generate_scalability_datasets()
-        methods = get_method_subset(method_subset, contamination=0.05, random_state=self.random_state)
+        methods = get_method_subset(
+            method_subset, contamination=0.05, random_state=self.random_state
+        )
 
-        results = {method_name: {
-            'n_samples': [],
-            'n_features': [],
-            'train_time': [],
-            'pred_time': []
-        } for method_name in methods.keys()}
+        results = {
+            method_name: {"n_samples": [], "n_features": [], "train_time": [], "pred_time": []}
+            for method_name in methods.keys()
+        }
 
         for dataset_name, (X, y) in scalability_datasets.items():
             n_samples, n_features = X.shape
@@ -305,7 +299,7 @@ class BenchmarkRunner:
             X_scaled = scaler.fit_transform(X)
 
             for method_name, method_wrapper in methods.items():
-                print(f"  {method_name}...", end=' ')
+                print(f"  {method_name}...", end=" ")
 
                 train_times = []
                 pred_times = []
@@ -330,19 +324,16 @@ class BenchmarkRunner:
                         break
 
                 if train_times:
-                    results[method_name]['n_samples'].append(n_samples)
-                    results[method_name]['n_features'].append(n_features)
-                    results[method_name]['train_time'].append(np.mean(train_times))
-                    results[method_name]['pred_time'].append(np.mean(pred_times))
+                    results[method_name]["n_samples"].append(n_samples)
+                    results[method_name]["n_features"].append(n_features)
+                    results[method_name]["train_time"].append(np.mean(train_times))
+                    results[method_name]["pred_time"].append(np.mean(pred_times))
                     print(f"Train: {np.mean(train_times):.3f}s, Pred: {np.mean(pred_times):.3f}s")
 
         self.scalability_results = results
         return results
 
-    def benchmark_robustness(
-        self,
-        method_subset: str = 'basic'
-    ) -> Dict:
+    def benchmark_robustness(self, method_subset: str = "basic") -> Dict:
         """
         Test robustness to various conditions.
 
@@ -360,11 +351,7 @@ class BenchmarkRunner:
         print("ROBUSTNESS BENCHMARKING")
         print("=" * 70)
 
-        results = {
-            'contamination_levels': [],
-            'noise_levels': [],
-            'dimensionality': []
-        }
+        results = {"contamination_levels": [], "noise_levels": [], "dimensionality": []}
 
         # Test 1: Different contamination levels
         print("\n1. Testing different contamination levels...")
@@ -374,11 +361,12 @@ class BenchmarkRunner:
             print(f"\nContamination: {contamination*100:.0f}%")
 
             from datasets import generate_global_outliers
+
             X, y = generate_global_outliers(
                 n_samples=2000,
                 n_features=20,
                 contamination=contamination,
-                random_state=self.random_state
+                random_state=self.random_state,
             )
 
             scaler = StandardScaler()
@@ -392,12 +380,14 @@ class BenchmarkRunner:
                     y_scores = method_wrapper.score_samples(X_scaled)
                     metrics = compute_metrics(y, y_scores, contamination=contamination)
 
-                    results['contamination_levels'].append({
-                        'method': method_name,
-                        'contamination': contamination,
-                        'roc_auc': metrics['roc_auc'],
-                        'avg_precision': metrics['avg_precision']
-                    })
+                    results["contamination_levels"].append(
+                        {
+                            "method": method_name,
+                            "contamination": contamination,
+                            "roc_auc": metrics["roc_auc"],
+                            "avg_precision": metrics["avg_precision"],
+                        }
+                    )
 
                 except Exception as e:
                     print(f"  {method_name}: ERROR - {e}")
@@ -410,11 +400,12 @@ class BenchmarkRunner:
             print(f"\nDimensions: {n_features}")
 
             from datasets import generate_high_dimensional_outliers
+
             X, y = generate_high_dimensional_outliers(
                 n_samples=1000,
                 n_features=n_features,
                 contamination=0.1,
-                random_state=self.random_state
+                random_state=self.random_state,
             )
 
             scaler = StandardScaler()
@@ -428,12 +419,14 @@ class BenchmarkRunner:
                     y_scores = method_wrapper.score_samples(X_scaled)
                     metrics = compute_metrics(y, y_scores, contamination=0.1)
 
-                    results['dimensionality'].append({
-                        'method': method_name,
-                        'n_features': n_features,
-                        'roc_auc': metrics['roc_auc'],
-                        'avg_precision': metrics['avg_precision']
-                    })
+                    results["dimensionality"].append(
+                        {
+                            "method": method_name,
+                            "n_features": n_features,
+                            "roc_auc": metrics["roc_auc"],
+                            "avg_precision": metrics["avg_precision"],
+                        }
+                    )
 
                 except Exception as e:
                     print(f"  {method_name}: ERROR - {e}")
@@ -441,7 +434,7 @@ class BenchmarkRunner:
         self.robustness_results = results
         return results
 
-    def save_results(self, filename: str = 'benchmark_results.csv'):
+    def save_results(self, filename: str = "benchmark_results.csv"):
         """Save benchmark results to CSV."""
         if self.results:
             results_df = pd.DataFrame(self.results)
@@ -468,18 +461,20 @@ class BenchmarkRunner:
         # Summary statistics
         print("\n1. Overall Performance Summary")
         print("-" * 70)
-        summary = results_df.groupby('method')[['roc_auc', 'avg_precision', 'train_time', 'pred_time']].mean()
-        summary = summary.sort_values('roc_auc', ascending=False)
+        summary = results_df.groupby("method")[
+            ["roc_auc", "avg_precision", "train_time", "pred_time"]
+        ].mean()
+        summary = summary.sort_values("roc_auc", ascending=False)
         print(summary.to_string())
 
         # Best method per dataset
-        if 'dataset' in results_df.columns:
+        if "dataset" in results_df.columns:
             print("\n2. Best Method per Dataset")
             print("-" * 70)
-            for dataset in results_df['dataset'].unique():
-                dataset_results = results_df[results_df['dataset'] == dataset]
-                best_method = dataset_results.loc[dataset_results['roc_auc'].idxmax(), 'method']
-                best_score = dataset_results['roc_auc'].max()
+            for dataset in results_df["dataset"].unique():
+                dataset_results = results_df[results_df["dataset"] == dataset]
+                best_method = dataset_results.loc[dataset_results["roc_auc"].idxmax(), "method"]
+                best_score = dataset_results["roc_auc"].max()
                 print(f"{dataset:25s}: {best_method:20s} (ROC-AUC: {best_score:.3f})")
 
         # Create visualizations
@@ -487,60 +482,51 @@ class BenchmarkRunner:
 
         # Main comparison plot
         plot_method_comparison(
-            results_df,
-            metric='roc_auc',
-            save_path=self.output_dir / 'method_comparison_roc.png'
+            results_df, metric="roc_auc", save_path=self.output_dir / "method_comparison_roc.png"
         )
         print("  - Method comparison (ROC-AUC)")
 
         # Performance vs time
-        if 'total_time' in results_df.columns:
+        if "total_time" in results_df.columns:
             plot_performance_vs_time(
-                results_df,
-                save_path=self.output_dir / 'performance_vs_time.png'
+                results_df, save_path=self.output_dir / "performance_vs_time.png"
             )
             print("  - Performance vs time scatter")
 
         # Multi-metric comparison
-        metrics = ['roc_auc', 'avg_precision', 'precision', 'recall', 'f1_score']
+        metrics = ["roc_auc", "avg_precision", "precision", "recall", "f1_score"]
         available_metrics = [m for m in metrics if m in results_df.columns]
         if len(available_metrics) >= 3:
             plot_multi_metric_comparison(
                 results_df,
                 metrics=available_metrics,
-                save_path=self.output_dir / 'multi_metric_heatmap.png'
+                save_path=self.output_dir / "multi_metric_heatmap.png",
             )
             print("  - Multi-metric heatmap")
 
         # Dataset comparison
-        if 'dataset' in results_df.columns and len(results_df['dataset'].unique()) > 1:
+        if "dataset" in results_df.columns and len(results_df["dataset"].unique()) > 1:
             plot_dataset_comparison(
-                results_df,
-                save_path=self.output_dir / 'dataset_comparison.png'
+                results_df, save_path=self.output_dir / "dataset_comparison.png"
             )
             print("  - Dataset comparison")
 
         # Scalability plots
         if self.scalability_results:
             plot_scalability(
-                self.scalability_results,
-                save_path=self.output_dir / 'scalability.png'
+                self.scalability_results, save_path=self.output_dir / "scalability.png"
             )
             print("  - Scalability curves")
 
         # Memory usage
-        if 'memory_total_mb' in results_df.columns:
-            memory_data = results_df.groupby('method')['memory_total_mb'].apply(list).to_dict()
-            plot_memory_usage(
-                memory_data,
-                save_path=self.output_dir / 'memory_usage.png'
-            )
+        if "memory_total_mb" in results_df.columns:
+            memory_data = results_df.groupby("method")["memory_total_mb"].apply(list).to_dict()
+            plot_memory_usage(memory_data, save_path=self.output_dir / "memory_usage.png")
             print("  - Memory usage comparison")
 
         # Comprehensive dashboard
         create_benchmark_dashboard(
-            results_df,
-            save_path=self.output_dir / 'benchmark_dashboard.png'
+            results_df, save_path=self.output_dir / "benchmark_dashboard.png"
         )
         print("  - Comprehensive dashboard")
 
@@ -551,19 +537,21 @@ class BenchmarkRunner:
 
     def _save_markdown_report(self, results_df: pd.DataFrame):
         """Save results as markdown report."""
-        report_path = self.output_dir / 'BENCHMARK_REPORT.md'
+        report_path = self.output_dir / "BENCHMARK_REPORT.md"
 
-        with open(report_path, 'w') as f:
+        with open(report_path, "w") as f:
             f.write("# PSOD Benchmark Report\n\n")
             f.write("## 1. Overall Performance Summary\n\n")
 
-            summary = results_df.groupby('method')[['roc_auc', 'avg_precision', 'train_time', 'pred_time']].agg(['mean', 'std'])
+            summary = results_df.groupby("method")[
+                ["roc_auc", "avg_precision", "train_time", "pred_time"]
+            ].agg(["mean", "std"])
             summary = summary.round(4)
 
             f.write(summary.to_markdown())
 
             f.write("\n\n## 2. Method Rankings\n\n")
-            rankings = results_df.groupby('method')['roc_auc'].mean().sort_values(ascending=False)
+            rankings = results_df.groupby("method")["roc_auc"].mean().sort_values(ascending=False)
             f.write("| Rank | Method | ROC-AUC |\n")
             f.write("|------|--------|----------|\n")
             for rank, (method, score) in enumerate(rankings.items(), 1):
@@ -585,23 +573,23 @@ def main():
     print("=" * 70)
 
     # Initialize benchmark runner
-    runner = BenchmarkRunner(random_state=42, output_dir='benchmark_results')
+    runner = BenchmarkRunner(random_state=42, output_dir="benchmark_results")
 
     # 1. Benchmark on standard datasets
     print("\nStep 1: Benchmarking on standard datasets...")
-    dataset_names = ['small_global', 'medium_global', 'medium_mixed', 'low_contamination']
+    dataset_names = ["small_global", "medium_global", "medium_mixed", "low_contamination"]
     results_df = runner.benchmark_datasets(
         dataset_names=dataset_names,
-        method_subset='basic'  # Use 'basic' for quick testing, 'all' for comprehensive
+        method_subset="basic",  # Use 'basic' for quick testing, 'all' for comprehensive
     )
 
     # 2. Scalability testing
     print("\nStep 2: Running scalability tests...")
-    scalability_results = runner.benchmark_scalability(method_subset='fast')
+    scalability_results = runner.benchmark_scalability(method_subset="fast")
 
     # 3. Robustness testing
     print("\nStep 3: Running robustness tests...")
-    robustness_results = runner.benchmark_robustness(method_subset='basic')
+    robustness_results = runner.benchmark_robustness(method_subset="basic")
 
     # 4. Save results
     print("\nStep 4: Saving results...")

@@ -42,9 +42,7 @@ def save_model(model: Any, filepath: str, format: str = "pickle") -> None:
         Format to use for saving ('pickle', 'joblib', 'json').
     """
     # Create directory if it doesn't exist
-    os.makedirs(
-        os.path.dirname(filepath) if os.path.dirname(filepath) else ".", exist_ok=True
-    )
+    os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else ".", exist_ok=True)
 
     # Prepare model metadata
     metadata = {
@@ -67,12 +65,8 @@ def save_model(model: Any, filepath: str, format: str = "pickle") -> None:
 
         elif format.lower() == "joblib":
             # Save with joblib (better for sklearn objects)
-            joblib.dump(
-                {"model": model, "metadata": metadata}, f"{filepath}.joblib", compress=3
-            )
-            logger.info(
-                f"Model saved to {filepath}.joblib using joblib with compression"
-            )
+            joblib.dump({"model": model, "metadata": metadata}, f"{filepath}.joblib", compress=3)
+            logger.info(f"Model saved to {filepath}.joblib using joblib with compression")
 
         elif format.lower() == "json":
             # Save serializable parts as JSON (limited support)
@@ -85,9 +79,7 @@ def save_model(model: Any, filepath: str, format: str = "pickle") -> None:
                     if not attr.startswith("_"):
                         try:
                             value = getattr(model, attr)
-                            if isinstance(
-                                value, (int, float, str, list, dict, bool, type(None))
-                            ):
+                            if isinstance(value, (int, float, str, list, dict, bool, type(None))):
                                 model_dict[attr] = value
                             elif isinstance(value, np.ndarray):
                                 model_dict[attr] = value.tolist()
@@ -100,9 +92,7 @@ def save_model(model: Any, filepath: str, format: str = "pickle") -> None:
             logger.info(f"Model saved to {filepath}.json using JSON")
 
         else:
-            raise ValueError(
-                f"Unsupported format: {format}. Use 'pickle', 'joblib', or 'json'"
-            )
+            raise ValueError(f"Unsupported format: {format}. Use 'pickle', 'joblib', or 'json'")
 
     except Exception as e:
         logger.error(f"Failed to save model: {str(e)}")
@@ -217,9 +207,7 @@ def validate_dataframe(
     validation_results["info"]["n_features"] = n_features
 
     if n_samples < min_samples:
-        validation_results["errors"].append(
-            f"Insufficient samples: {n_samples} < {min_samples}"
-        )
+        validation_results["errors"].append(f"Insufficient samples: {n_samples} < {min_samples}")
         validation_results["is_valid"] = False
 
     if n_features == 0:
@@ -293,9 +281,7 @@ def validate_dataframe(
             validation_results["warnings"].append(
                 f"High number of duplicate rows: {n_duplicates} ({duplicate_percentage:.1f}%)"
             )
-            validation_results["recommendations"].append(
-                "Consider removing duplicate rows"
-            )
+            validation_results["recommendations"].append("Consider removing duplicate rows")
 
     # Check for infinite values
     if df.select_dtypes(include=[np.number]).shape[1] > 0:
@@ -368,16 +354,12 @@ def handle_missing_values(
         initial_shape = df_processed.shape
         df_processed = df_processed.dropna()
         final_shape = df_processed.shape
-        logger.info(
-            f"Dropped {initial_shape[0] - final_shape[0]} rows with missing values"
-        )
+        logger.info(f"Dropped {initial_shape[0] - final_shape[0]} rows with missing values")
 
     elif strategy in ["mean", "median", "mode", "constant"]:
         # Apply imputation column-wise
         numeric_cols = df_processed.select_dtypes(include=[np.number]).columns
-        categorical_cols = df_processed.select_dtypes(
-            include=["object", "category"]
-        ).columns
+        categorical_cols = df_processed.select_dtypes(include=["object", "category"]).columns
 
         # Handle numeric columns
         if len(numeric_cols) > 0:
@@ -390,9 +372,7 @@ def handle_missing_values(
             else:
                 imputer = SimpleImputer(strategy=strategy)
 
-            df_processed[numeric_cols] = imputer.fit_transform(
-                df_processed[numeric_cols]
-            )
+            df_processed[numeric_cols] = imputer.fit_transform(df_processed[numeric_cols])
 
         # Handle categorical columns
         if len(categorical_cols) > 0:
@@ -414,14 +394,10 @@ def handle_missing_values(
         numeric_cols = df_processed.select_dtypes(include=[np.number]).columns
         if len(numeric_cols) > 0:
             knn_imputer = KNNImputer(n_neighbors=5)
-            df_processed[numeric_cols] = knn_imputer.fit_transform(
-                df_processed[numeric_cols]
-            )
+            df_processed[numeric_cols] = knn_imputer.fit_transform(df_processed[numeric_cols])
 
         # Use mode for categorical columns
-        categorical_cols = df_processed.select_dtypes(
-            include=["object", "category"]
-        ).columns
+        categorical_cols = df_processed.select_dtypes(include=["object", "category"]).columns
         if len(categorical_cols) > 0:
             cat_imputer = SimpleImputer(strategy="most_frequent")
             df_processed[categorical_cols] = cat_imputer.fit_transform(
@@ -438,9 +414,7 @@ def handle_missing_values(
     return df_processed
 
 
-def calibrate_outlier_scores(
-    scores: np.ndarray, contamination: float = 0.1
-) -> np.ndarray:
+def calibrate_outlier_scores(scores: np.ndarray, contamination: float = 0.1) -> np.ndarray:
     """
     Calibrate outlier scores to a specific contamination level.
 
@@ -521,9 +495,7 @@ def combine_outlier_scores(
     n_samples = len(scores_list[0])
     for i, scores in enumerate(scores_list):
         if len(scores) != n_samples:
-            raise ValueError(
-                f"Score array {i} has different length: {len(scores)} vs {n_samples}"
-            )
+            raise ValueError(f"Score array {i} has different length: {len(scores)} vs {n_samples}")
 
     scores_array = np.array(scores_list)
 
@@ -626,9 +598,7 @@ def evaluate_outlier_detection(
                 )
 
             elif metric.lower() == "recall":
-                results["recall"] = recall_score(
-                    y_true_binary, y_pred_binary, zero_division=0
-                )
+                results["recall"] = recall_score(y_true_binary, y_pred_binary, zero_division=0)
 
             elif metric.lower() == "f1":
                 results["f1"] = f1_score(y_true_binary, y_pred_binary, zero_division=0)
@@ -641,9 +611,7 @@ def evaluate_outlier_detection(
 
             elif metric.lower() in ["auc_pr", "pr_auc"]:
                 if not is_binary_pred:
-                    precision_vals, recall_vals, _ = precision_recall_curve(
-                        y_true_binary, y_pred
-                    )
+                    precision_vals, recall_vals, _ = precision_recall_curve(y_true_binary, y_pred)
                     results["auc_pr"] = np.trapz(precision_vals, recall_vals)
                 else:
                     precision_vals, recall_vals, _ = precision_recall_curve(
@@ -653,9 +621,7 @@ def evaluate_outlier_detection(
 
             elif metric.lower() == "average_precision":
                 if not is_binary_pred:
-                    results["average_precision"] = average_precision_score(
-                        y_true_binary, y_pred
-                    )
+                    results["average_precision"] = average_precision_score(y_true_binary, y_pred)
                 else:
                     results["average_precision"] = average_precision_score(
                         y_true_binary, y_pred_binary
@@ -731,9 +697,7 @@ def generate_outlier_data(
     # Create covariance matrix with some correlation
     cov = np.eye(n_features)
     for i in range(n_features):
-        for j in range(
-            i + 1, min(i + 3, n_features)
-        ):  # Add correlation to nearby features
+        for j in range(i + 1, min(i + 3, n_features)):  # Add correlation to nearby features
             cov[i, j] = cov[j, i] = 0.3
 
     X_normal = np.random.multivariate_normal(mean, cov, n_normal)
@@ -743,9 +707,7 @@ def generate_outlier_data(
         # Global outliers: far from normal data in feature space
         outlier_mean = mean + 3 * np.ones(n_features)  # Shift mean
         outlier_cov = 0.5 * np.eye(n_features)  # Smaller variance
-        X_outliers = np.random.multivariate_normal(
-            outlier_mean, outlier_cov, n_outliers
-        )
+        X_outliers = np.random.multivariate_normal(outlier_mean, outlier_cov, n_outliers)
 
     elif outlier_type == "local":
         # Local outliers: outliers in subspaces
@@ -758,9 +720,7 @@ def generate_outlier_data(
                 size=np.random.randint(1, max(2, n_features // 2)),
                 replace=False,
             )
-            X_outliers[i, outlier_features] += np.random.normal(
-                0, 3, len(outlier_features)
-            )
+            X_outliers[i, outlier_features] += np.random.normal(0, 3, len(outlier_features))
 
     elif outlier_type == "collective":
         # Collective outliers: groups that are outliers together
@@ -811,9 +771,7 @@ def generate_outlier_data(
         for i in range(n_outliers):
             # Select 1-3 random features to make extreme
             n_extreme_features = np.random.randint(1, min(4, n_features + 1))
-            extreme_features = np.random.choice(
-                n_features, size=n_extreme_features, replace=False
-            )
+            extreme_features = np.random.choice(n_features, size=n_extreme_features, replace=False)
 
             # Make selected features extremely large or small
             for feat_idx in extreme_features:
@@ -823,7 +781,7 @@ def generate_outlier_data(
     elif outlier_type == "mixed":
         # Mixed outliers: combination of different types
         outlier_types = ["global", "local", "point"]
-        type_counts = np.random.multinomial(n_outliers, [1/3, 1/3, 1/3])
+        type_counts = np.random.multinomial(n_outliers, [1 / 3, 1 / 3, 1 / 3])
 
         X_outliers_list = []
 
@@ -831,9 +789,7 @@ def generate_outlier_data(
         if type_counts[0] > 0:
             outlier_mean = mean + 3 * np.ones(n_features)
             outlier_cov = 0.5 * np.eye(n_features)
-            X_global = np.random.multivariate_normal(
-                outlier_mean, outlier_cov, type_counts[0]
-            )
+            X_global = np.random.multivariate_normal(outlier_mean, outlier_cov, type_counts[0])
             X_outliers_list.append(X_global)
 
         # Generate local outliers
@@ -1013,13 +969,9 @@ def compute_detailed_metrics(
     if y_scores is not None:
         try:
             metrics["auc_roc"] = roc_auc_score(y_true_binary, y_scores)
-            precision_vals, recall_vals, _ = precision_recall_curve(
-                y_true_binary, y_scores
-            )
+            precision_vals, recall_vals, _ = precision_recall_curve(y_true_binary, y_scores)
             metrics["auc_pr"] = np.trapz(precision_vals, recall_vals)
-            metrics["average_precision"] = average_precision_score(
-                y_true_binary, y_scores
-            )
+            metrics["average_precision"] = average_precision_score(y_true_binary, y_scores)
         except Exception as e:
             logger.warning(f"Could not compute threshold-based metrics: {str(e)}")
 
@@ -1094,17 +1046,14 @@ def select_threshold(
 
     else:
         raise ValueError(
-            f"Unsupported method: {method}. "
-            "Use 'percentile', 'median', 'mad', 'iqr', or 'std'"
+            f"Unsupported method: {method}. " "Use 'percentile', 'median', 'mad', 'iqr', or 'std'"
         )
 
     logger.info(f"Selected threshold: {threshold:.4f} using method: {method}")
     return threshold
 
 
-def normalize_scores(
-    scores: np.ndarray, method: str = "minmax", clip: bool = True
-) -> np.ndarray:
+def normalize_scores(scores: np.ndarray, method: str = "minmax", clip: bool = True) -> np.ndarray:
     """
     Normalize outlier scores to [0, 1] range.
 
@@ -1163,8 +1112,7 @@ def normalize_scores(
 
     else:
         raise ValueError(
-            f"Unsupported method: {method}. "
-            "Use 'minmax', 'zscore', 'rank', or 'sigmoid'"
+            f"Unsupported method: {method}. " "Use 'minmax', 'zscore', 'rank', or 'sigmoid'"
         )
 
     if clip:
@@ -1209,9 +1157,7 @@ def remove_outliers(
             # Cap at 1st and 99th percentiles
             lower = df_clean.loc[~outlier_mask, col].quantile(0.01)
             upper = df_clean.loc[~outlier_mask, col].quantile(0.99)
-            df_clean.loc[outlier_mask, col] = df_clean.loc[outlier_mask, col].clip(
-                lower, upper
-            )
+            df_clean.loc[outlier_mask, col] = df_clean.loc[outlier_mask, col].clip(lower, upper)
         logger.info(f"Capped {outlier_mask.sum()} outlier rows at percentile limits")
 
     elif strategy == "impute":
@@ -1220,14 +1166,10 @@ def remove_outliers(
             # Replace with median of normal data
             median_val = df_clean.loc[~outlier_mask, col].median()
             df_clean.loc[outlier_mask, col] = median_val
-        logger.info(
-            f"Imputed {outlier_mask.sum()} outlier rows with median values"
-        )
+        logger.info(f"Imputed {outlier_mask.sum()} outlier rows with median values")
 
     else:
-        raise ValueError(
-            f"Unsupported strategy: {strategy}. Use 'remove', 'cap', or 'impute'"
-        )
+        raise ValueError(f"Unsupported strategy: {strategy}. Use 'remove', 'cap', or 'impute'")
 
     return df_clean
 

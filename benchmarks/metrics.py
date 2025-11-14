@@ -6,19 +6,24 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Tuple, Optional
 from sklearn.metrics import (
-    roc_auc_score, average_precision_score, precision_recall_curve,
-    precision_score, recall_score, f1_score, confusion_matrix
+    roc_auc_score,
+    average_precision_score,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix,
 )
 import warnings
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 def compute_metrics(
     y_true: np.ndarray,
     y_scores: np.ndarray,
     y_pred: Optional[np.ndarray] = None,
-    contamination: Optional[float] = None
+    contamination: Optional[float] = None,
 ) -> Dict[str, float]:
     """
     Compute comprehensive evaluation metrics.
@@ -43,38 +48,38 @@ def compute_metrics(
 
     # ROC-AUC (ranking-based)
     try:
-        metrics['roc_auc'] = roc_auc_score(y_true, y_scores)
+        metrics["roc_auc"] = roc_auc_score(y_true, y_scores)
     except Exception as e:
-        metrics['roc_auc'] = np.nan
+        metrics["roc_auc"] = np.nan
 
     # Average Precision (PR-AUC)
     try:
-        metrics['avg_precision'] = average_precision_score(y_true, y_scores)
+        metrics["avg_precision"] = average_precision_score(y_true, y_scores)
     except Exception as e:
-        metrics['avg_precision'] = np.nan
+        metrics["avg_precision"] = np.nan
 
     # Precision at k (top k predictions)
     if contamination is not None:
         k = int(len(y_true) * contamination)
         top_k_indices = np.argsort(y_scores)[-k:]
-        metrics['precision_at_k'] = np.sum(y_true[top_k_indices]) / k
+        metrics["precision_at_k"] = np.sum(y_true[top_k_indices]) / k
 
     # Binary classification metrics
     if y_pred is not None:
-        metrics['precision'] = precision_score(y_true, y_pred, zero_division=0)
-        metrics['recall'] = recall_score(y_true, y_pred, zero_division=0)
-        metrics['f1_score'] = f1_score(y_true, y_pred, zero_division=0)
+        metrics["precision"] = precision_score(y_true, y_pred, zero_division=0)
+        metrics["recall"] = recall_score(y_true, y_pred, zero_division=0)
+        metrics["f1_score"] = f1_score(y_true, y_pred, zero_division=0)
 
         # Confusion matrix metrics
         tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-        metrics['true_positives'] = int(tp)
-        metrics['false_positives'] = int(fp)
-        metrics['true_negatives'] = int(tn)
-        metrics['false_negatives'] = int(fn)
+        metrics["true_positives"] = int(tp)
+        metrics["false_positives"] = int(fp)
+        metrics["true_negatives"] = int(tn)
+        metrics["false_negatives"] = int(fn)
 
         # Additional metrics
-        metrics['specificity'] = tn / (tn + fp) if (tn + fp) > 0 else 0
-        metrics['false_positive_rate'] = fp / (fp + tn) if (fp + tn) > 0 else 0
+        metrics["specificity"] = tn / (tn + fp) if (tn + fp) > 0 else 0
+        metrics["false_positive_rate"] = fp / (fp + tn) if (fp + tn) > 0 else 0
 
     return metrics
 
@@ -102,9 +107,7 @@ def precision_at_n(y_true: np.ndarray, y_scores: np.ndarray, n: int) -> float:
 
 
 def compute_precision_recall_at_k(
-    y_true: np.ndarray,
-    y_scores: np.ndarray,
-    k_values: Optional[list] = None
+    y_true: np.ndarray, y_scores: np.ndarray, k_values: Optional[list] = None
 ) -> Dict[str, list]:
     """
     Compute precision and recall at different k values.
@@ -129,7 +132,7 @@ def compute_precision_recall_at_k(
     n_samples = len(y_true)
     n_outliers = np.sum(y_true)
 
-    results = {'k': [], 'precision': [], 'recall': []}
+    results = {"k": [], "precision": [], "recall": []}
 
     for k_prop in k_values:
         k = max(1, int(n_samples * k_prop))
@@ -138,9 +141,9 @@ def compute_precision_recall_at_k(
         precision = np.sum(y_true[top_k_indices]) / k
         recall = np.sum(y_true[top_k_indices]) / n_outliers if n_outliers > 0 else 0
 
-        results['k'].append(k_prop)
-        results['precision'].append(precision)
-        results['recall'].append(recall)
+        results["k"].append(k_prop)
+        results["precision"].append(precision)
+        results["recall"].append(recall)
 
     return results
 
@@ -166,10 +169,10 @@ def compute_roc_curve_data(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[str
     fpr, tpr, thresholds = roc_curve(y_true, y_scores)
 
     return {
-        'fpr': fpr,
-        'tpr': tpr,
-        'thresholds': thresholds,
-        'auc': roc_auc_score(y_true, y_scores)
+        "fpr": fpr,
+        "tpr": tpr,
+        "thresholds": thresholds,
+        "auc": roc_auc_score(y_true, y_scores),
     }
 
 
@@ -192,10 +195,10 @@ def compute_pr_curve_data(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[str,
     precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
 
     return {
-        'precision': precision,
-        'recall': recall,
-        'thresholds': thresholds,
-        'auc': average_precision_score(y_true, y_scores)
+        "precision": precision,
+        "recall": recall,
+        "thresholds": thresholds,
+        "auc": average_precision_score(y_true, y_scores),
     }
 
 
@@ -222,7 +225,7 @@ def compute_ranking_metrics(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[st
     # NDCG (Normalized Discounted Cumulative Gain)
     n_outliers = np.sum(y_true)
     if n_outliers == 0:
-        return {'ndcg': 0.0, 'map': 0.0}
+        return {"ndcg": 0.0, "map": 0.0}
 
     # DCG
     dcg = np.sum(sorted_labels / np.log2(np.arange(2, len(sorted_labels) + 2)))
@@ -236,16 +239,13 @@ def compute_ranking_metrics(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[st
     # Mean Average Precision (MAP)
     precisions_at_k = []
     for k in range(1, len(sorted_labels) + 1):
-        if sorted_labels[k-1] == 1:
+        if sorted_labels[k - 1] == 1:
             precision_at_k = np.sum(sorted_labels[:k]) / k
             precisions_at_k.append(precision_at_k)
 
     map_score = np.mean(precisions_at_k) if precisions_at_k else 0
 
-    return {
-        'ndcg': ndcg,
-        'map': map_score
-    }
+    return {"ndcg": ndcg, "map": map_score}
 
 
 def aggregate_metrics(results_list: list) -> pd.DataFrame:
@@ -264,21 +264,21 @@ def aggregate_metrics(results_list: list) -> pd.DataFrame:
     """
     df = pd.DataFrame(results_list)
 
-    summary = pd.DataFrame({
-        'mean': df.mean(),
-        'std': df.std(),
-        'min': df.min(),
-        'max': df.max(),
-        'median': df.median()
-    })
+    summary = pd.DataFrame(
+        {
+            "mean": df.mean(),
+            "std": df.std(),
+            "min": df.min(),
+            "max": df.max(),
+            "median": df.median(),
+        }
+    )
 
     return summary
 
 
 def compare_methods(
-    results_df: pd.DataFrame,
-    metric: str = 'roc_auc',
-    baseline: str = 'IsolationForest'
+    results_df: pd.DataFrame, metric: str = "roc_auc", baseline: str = "IsolationForest"
 ) -> pd.DataFrame:
     """
     Compare methods against baseline.
@@ -297,23 +297,20 @@ def compare_methods(
     comparison : pd.DataFrame
         Comparison results with improvements
     """
-    if baseline not in results_df['method'].values:
-        baseline = results_df['method'].values[0]
+    if baseline not in results_df["method"].values:
+        baseline = results_df["method"].values[0]
 
-    baseline_score = results_df[results_df['method'] == baseline][metric].mean()
+    baseline_score = results_df[results_df["method"] == baseline][metric].mean()
 
-    comparison = results_df.groupby('method')[metric].agg(['mean', 'std']).reset_index()
-    comparison['improvement'] = (comparison['mean'] - baseline_score) / baseline_score * 100
-    comparison = comparison.sort_values('mean', ascending=False)
+    comparison = results_df.groupby("method")[metric].agg(["mean", "std"]).reset_index()
+    comparison["improvement"] = (comparison["mean"] - baseline_score) / baseline_score * 100
+    comparison = comparison.sort_values("mean", ascending=False)
 
     return comparison
 
 
 def statistical_test(
-    results_df: pd.DataFrame,
-    method1: str,
-    method2: str,
-    metric: str = 'roc_auc'
+    results_df: pd.DataFrame, method1: str, method2: str, metric: str = "roc_auc"
 ) -> Dict[str, float]:
     """
     Perform statistical significance test between two methods.
@@ -336,8 +333,8 @@ def statistical_test(
     """
     from scipy import stats
 
-    scores1 = results_df[results_df['method'] == method1][metric].values
-    scores2 = results_df[results_df['method'] == method2][metric].values
+    scores1 = results_df[results_df["method"] == method1][metric].values
+    scores2 = results_df[results_df["method"] == method2][metric].values
 
     # Paired t-test
     if len(scores1) == len(scores2) and len(scores1) > 1:
@@ -346,8 +343,8 @@ def statistical_test(
         t_stat, p_value = stats.ttest_ind(scores1, scores2)
 
     return {
-        't_statistic': t_stat,
-        'p_value': p_value,
-        'significant': p_value < 0.05,
-        'mean_diff': np.mean(scores1) - np.mean(scores2)
+        "t_statistic": t_stat,
+        "p_value": p_value,
+        "significant": p_value < 0.05,
+        "mean_diff": np.mean(scores1) - np.mean(scores2),
     }

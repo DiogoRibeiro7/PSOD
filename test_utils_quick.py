@@ -2,7 +2,8 @@
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
+
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 import numpy as np
 import pandas as pd
@@ -15,16 +16,18 @@ print("=" * 60)
 # Test 1: Generate synthetic data
 print("\n1. Testing synthetic data generation...")
 try:
-    for outlier_type in ['global', 'local', 'collective', 'contextual', 'point', 'mixed']:
+    for outlier_type in ["global", "local", "collective", "contextual", "point", "mixed"]:
         X, y = utils.generate_outlier_data(
             n_samples=100,
             n_features=5,
             contamination=0.1,
             outlier_type=outlier_type,
-            random_state=42
+            random_state=42,
         )
         n_outliers = np.sum(y)
-        print(f"   ✓ Generated {outlier_type} outliers: {X.shape[0]} samples, {n_outliers} outliers")
+        print(
+            f"   ✓ Generated {outlier_type} outliers: {X.shape[0]} samples, {n_outliers} outliers"
+        )
     print("   ✓ Synthetic data generation works!")
 except Exception as e:
     print(f"   ✗ Error: {str(e)}")
@@ -44,7 +47,7 @@ except Exception as e:
 print("\n3. Testing score normalization...")
 try:
     scores = np.random.randn(100)
-    for method in ['minmax', 'zscore', 'rank', 'sigmoid']:
+    for method in ["minmax", "zscore", "rank", "sigmoid"]:
         normalized = utils.normalize_scores(scores, method=method)
         print(f"   ✓ {method}: min={normalized.min():.3f}, max={normalized.max():.3f}")
     print("   ✓ Score normalization works!")
@@ -55,8 +58,8 @@ except Exception as e:
 print("\n4. Testing threshold selection...")
 try:
     scores = np.random.randn(100)
-    for method in ['percentile', 'median', 'mad', 'iqr', 'std']:
-        if method == 'percentile':
+    for method in ["percentile", "median", "mad", "iqr", "std"]:
+        if method == "percentile":
             threshold = utils.select_threshold(scores, method=method, contamination=0.1)
         else:
             threshold = utils.select_threshold(scores, method=method, k=1.5)
@@ -73,7 +76,7 @@ try:
     scores3 = np.random.randn(100)
     scores_list = [scores1, scores2, scores3]
 
-    for method in ['average', 'median', 'maximum', 'minimum', 'rank_average', 'geometric_mean']:
+    for method in ["average", "median", "maximum", "minimum", "rank_average", "geometric_mean"]:
         combined = utils.combine_outlier_scores(scores_list, method=method)
         print(f"   ✓ {method}: combined {len(scores_list)} score arrays")
     print("   ✓ Score combination works!")
@@ -88,10 +91,14 @@ try:
     y_scores = np.random.rand(100)
 
     metrics = utils.evaluate_outlier_detection(y_true, y_pred)
-    print(f"   ✓ Basic metrics: precision={metrics.get('precision', 0):.3f}, recall={metrics.get('recall', 0):.3f}")
+    print(
+        f"   ✓ Basic metrics: precision={metrics.get('precision', 0):.3f}, recall={metrics.get('recall', 0):.3f}"
+    )
 
     detailed_metrics = utils.compute_detailed_metrics(y_true, y_pred, y_scores)
-    print(f"   ✓ Detailed metrics: accuracy={detailed_metrics['accuracy']:.3f}, specificity={detailed_metrics['specificity']:.3f}")
+    print(
+        f"   ✓ Detailed metrics: accuracy={detailed_metrics['accuracy']:.3f}, specificity={detailed_metrics['specificity']:.3f}"
+    )
     print("   ✓ Evaluation metrics work!")
 except Exception as e:
     print(f"   ✗ Error: {str(e)}")
@@ -100,10 +107,10 @@ except Exception as e:
 print("\n7. Testing data preprocessing...")
 try:
     # Create data with missing values
-    df = pd.DataFrame(np.random.randn(100, 5), columns=[f'f{i}' for i in range(5)])
+    df = pd.DataFrame(np.random.randn(100, 5), columns=[f"f{i}" for i in range(5)])
     df.iloc[::10, 0] = np.nan  # Add some missing values
 
-    for strategy in ['drop', 'mean', 'median', 'mode', 'knn']:
+    for strategy in ["drop", "mean", "median", "mode", "knn"]:
         df_clean = utils.handle_missing_values(df.copy(), strategy=strategy)
         print(f"   ✓ {strategy}: shape={df_clean.shape}, missing={df_clean.isnull().sum().sum()}")
     print("   ✓ Data preprocessing works!")
@@ -116,7 +123,7 @@ try:
     X, y = utils.generate_outlier_data(n_samples=100, n_features=5, random_state=42)
     scores = np.random.rand(100)
 
-    importance = utils.compute_feature_importance(X, scores, method='correlation')
+    importance = utils.compute_feature_importance(X, scores, method="correlation")
     print(f"   ✓ Computed importance for {len(importance)} features")
     print(f"   ✓ Top feature: {importance.index[0]} (score={importance.iloc[0]:.3f})")
     print("   ✓ Feature importance works!")

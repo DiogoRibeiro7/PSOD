@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from psod import PSOD
 from psod import utils
@@ -25,25 +25,29 @@ def random_seed():
 def sample_numeric_data(random_seed):
     """Basic numeric dataset for testing."""
     np.random.seed(random_seed)
-    return pd.DataFrame({
-        'feature_1': np.random.randn(100),
-        'feature_2': np.random.randn(100) * 2,
-        'feature_3': np.random.uniform(-1, 1, 100),
-        'feature_4': np.random.exponential(2, 100),
-    })
+    return pd.DataFrame(
+        {
+            "feature_1": np.random.randn(100),
+            "feature_2": np.random.randn(100) * 2,
+            "feature_3": np.random.uniform(-1, 1, 100),
+            "feature_4": np.random.exponential(2, 100),
+        }
+    )
 
 
 @pytest.fixture
 def sample_data_with_categorical(random_seed):
     """Dataset with both numeric and categorical features."""
     np.random.seed(random_seed)
-    return pd.DataFrame({
-        'numeric_1': np.random.randn(150),
-        'numeric_2': np.random.randn(150),
-        'numeric_3': np.random.randn(150),
-        'category_1': np.random.choice(['A', 'B', 'C'], 150),
-        'category_2': np.random.choice(['X', 'Y', 'Z'], 150),
-    })
+    return pd.DataFrame(
+        {
+            "numeric_1": np.random.randn(150),
+            "numeric_2": np.random.randn(150),
+            "numeric_3": np.random.randn(150),
+            "category_1": np.random.choice(["A", "B", "C"], 150),
+            "category_2": np.random.choice(["X", "Y", "Z"], 150),
+        }
+    )
 
 
 @pytest.fixture
@@ -54,16 +58,18 @@ def outlier_data(random_seed):
     normal_data = np.random.randn(95, 5)
 
     # 5 clear outliers
-    outliers = np.array([
-        [10, 10, 10, 10, 10],     # All features high
-        [-10, -10, -10, -10, -10], # All features low
-        [0, 20, 0, 0, 0],          # One feature extreme
-        [15, 0, 0, 15, 0],         # Two features high
-        [0, 0, -15, 0, -15],       # Two features low
-    ])
+    outliers = np.array(
+        [
+            [10, 10, 10, 10, 10],  # All features high
+            [-10, -10, -10, -10, -10],  # All features low
+            [0, 20, 0, 0, 0],  # One feature extreme
+            [15, 0, 0, 15, 0],  # Two features high
+            [0, 0, -15, 0, -15],  # Two features low
+        ]
+    )
 
     data = np.vstack([normal_data, outliers])
-    return pd.DataFrame(data, columns=['X1', 'X2', 'X3', 'X4', 'X5'])
+    return pd.DataFrame(data, columns=["X1", "X2", "X3", "X4", "X5"])
 
 
 @pytest.fixture
@@ -73,7 +79,7 @@ def time_series_data(random_seed):
     n_samples = 200
 
     # Create datetime index
-    dates = pd.date_range('2020-01-01', periods=n_samples, freq='D')
+    dates = pd.date_range("2020-01-01", periods=n_samples, freq="D")
 
     # Normal time series with trend and seasonality
     trend = np.linspace(0, 10, n_samples)
@@ -86,12 +92,14 @@ def time_series_data(random_seed):
     outlier_indices = [50, 75, 120, 160, 185]
     values[outlier_indices] += np.random.choice([-10, 10], len(outlier_indices))
 
-    return pd.DataFrame({
-        'timestamp': dates,
-        'value': values,
-        'feature_2': np.random.randn(n_samples),
-        'feature_3': np.random.randn(n_samples),
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": dates,
+            "value": values,
+            "feature_2": np.random.randn(n_samples),
+            "feature_3": np.random.randn(n_samples),
+        }
+    )
 
 
 @pytest.fixture
@@ -112,7 +120,7 @@ def high_dimensional_data(random_seed):
     # Add outliers in multiple dimensions
     data[-5:, :10] += 5
 
-    columns = [f'dim_{i}' for i in range(n_features)]
+    columns = [f"dim_{i}" for i in range(n_features)]
     return pd.DataFrame(data, columns=columns)
 
 
@@ -120,12 +128,14 @@ def high_dimensional_data(random_seed):
 def missing_value_data(random_seed):
     """Dataset with missing values."""
     np.random.seed(random_seed)
-    data = pd.DataFrame({
-        'feature_1': np.random.randn(100),
-        'feature_2': np.random.randn(100),
-        'feature_3': np.random.randn(100),
-        'feature_4': np.random.randn(100),
-    })
+    data = pd.DataFrame(
+        {
+            "feature_1": np.random.randn(100),
+            "feature_2": np.random.randn(100),
+            "feature_3": np.random.randn(100),
+            "feature_4": np.random.randn(100),
+        }
+    )
 
     # Introduce missing values (about 10% missing)
     mask = np.random.rand(*data.shape) < 0.1
@@ -138,17 +148,19 @@ def missing_value_data(random_seed):
 def small_dataset(random_seed):
     """Very small dataset for edge case testing."""
     np.random.seed(random_seed)
-    return pd.DataFrame({
-        'A': [1.0, 2.0, 3.0],
-        'B': [4.0, 5.0, 6.0],
-    })
+    return pd.DataFrame(
+        {
+            "A": [1.0, 2.0, 3.0],
+            "B": [4.0, 5.0, 6.0],
+        }
+    )
 
 
 @pytest.fixture
 def single_column_data(random_seed):
     """Single column dataset."""
     np.random.seed(random_seed)
-    return pd.DataFrame({'only_feature': np.random.randn(50)})
+    return pd.DataFrame({"only_feature": np.random.randn(50)})
 
 
 @pytest.fixture
@@ -159,13 +171,17 @@ def correlated_features_data(random_seed):
 
     base_feature = np.random.randn(n_samples)
 
-    return pd.DataFrame({
-        'feature_1': base_feature,
-        'feature_2': base_feature * 2 + np.random.randn(n_samples) * 0.1,  # High correlation
-        'feature_3': base_feature * -1 + np.random.randn(n_samples) * 0.1,  # Negative correlation
-        'feature_4': np.random.randn(n_samples),  # Independent
-        'feature_5': base_feature * 0.5 + np.random.randn(n_samples) * 0.5,  # Medium correlation
-    })
+    return pd.DataFrame(
+        {
+            "feature_1": base_feature,
+            "feature_2": base_feature * 2 + np.random.randn(n_samples) * 0.1,  # High correlation
+            "feature_3": base_feature * -1
+            + np.random.randn(n_samples) * 0.1,  # Negative correlation
+            "feature_4": np.random.randn(n_samples),  # Independent
+            "feature_5": base_feature * 0.5
+            + np.random.randn(n_samples) * 0.5,  # Medium correlation
+        }
+    )
 
 
 @pytest.fixture
@@ -232,6 +248,7 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture
 def assert_valid_outlier_scores():
     """Helper to validate outlier scores."""
+
     def _validate(scores, expected_length=None):
         assert scores is not None
         assert isinstance(scores, (pd.Series, np.ndarray))
@@ -240,12 +257,14 @@ def assert_valid_outlier_scores():
         # Scores should be numeric
         assert np.all(np.isfinite(scores))
         return True
+
     return _validate
 
 
 @pytest.fixture
 def assert_valid_outlier_labels():
     """Helper to validate outlier labels."""
+
     def _validate(labels, expected_length=None):
         assert labels is not None
         assert isinstance(labels, (pd.Series, np.ndarray))
@@ -254,6 +273,7 @@ def assert_valid_outlier_labels():
         # Labels should be 0 or 1
         assert set(np.unique(labels)).issubset({0, 1})
         return True
+
     return _validate
 
 

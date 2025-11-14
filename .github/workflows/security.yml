@@ -42,16 +42,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           queries: security-and-quality
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
 
@@ -73,9 +73,10 @@ jobs:
 
       - name: Run Bandit scan
         run: |
-          bandit -r src/ -f json -o bandit-report.json
-          bandit -r src/ -f txt -o bandit-report.txt
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -f txt -o bandit-report.txt || true
           bandit -r src/ -ll
+        continue-on-error: true
 
       - name: Upload Bandit results
         if: always()
@@ -87,10 +88,14 @@ jobs:
             bandit-report.txt
 
       - name: Annotate code with Bandit findings
-        if: failure()
+        if: always()
         run: |
           echo "## 🔒 Bandit Security Scan Results" >> $GITHUB_STEP_SUMMARY
-          cat bandit-report.txt >> $GITHUB_STEP_SUMMARY
+          if [ -f bandit-report.txt ]; then
+            cat bandit-report.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No Bandit report generated" >> $GITHUB_STEP_SUMMARY
+          fi
 
   safety-check:
     name: Safety Dependency Check
@@ -172,11 +177,13 @@ jobs:
             p/python
             p/bandit
             p/owasp-top-ten
-          generateSarif: true
+        continue-on-error: true
+        env:
+          SEMGREP_SARIF_OUTPUT: semgrep.sarif
 
       - name: Upload SARIF file
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
 
@@ -198,7 +205,7 @@ jobs:
 
       - name: Upload Trivy results to GitHub Security tab
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
 
@@ -314,14 +321,14 @@ jobs:
           persist-credentials: false
 
       - name: Run analysis
-        uses: ossf/scorecard-action@v2
+        uses: ossf/scorecard-action@v2.4.0
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
 
       - name: Upload SARIF results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
 

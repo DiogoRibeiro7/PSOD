@@ -9,14 +9,14 @@ from typing import Tuple, Dict, Optional
 from sklearn.datasets import make_classification, make_blobs
 import warnings
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 def generate_global_outliers(
     n_samples: int = 1000,
     n_features: int = 20,
     contamination: float = 0.1,
-    random_state: Optional[int] = None
+    random_state: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate dataset with global outliers (far from all normal points).
@@ -65,7 +65,7 @@ def generate_local_outliers(
     n_features: int = 20,
     contamination: float = 0.1,
     n_clusters: int = 5,
-    random_state: Optional[int] = None
+    random_state: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate dataset with local outliers (far from local neighborhood).
@@ -101,14 +101,13 @@ def generate_local_outliers(
         n_features=n_features,
         centers=n_clusters,
         cluster_std=1.0,
-        random_state=random_state
+        random_state=random_state,
     )
 
     # Generate local outliers (between clusters)
-    cluster_centers = np.array([
-        X_normal[np.random.choice(len(X_normal))]
-        for _ in range(n_clusters)
-    ])
+    cluster_centers = np.array(
+        [X_normal[np.random.choice(len(X_normal))] for _ in range(n_clusters)]
+    )
 
     X_outliers = []
     for _ in range(n_outliers):
@@ -134,7 +133,7 @@ def generate_collective_outliers(
     n_samples: int = 1000,
     n_features: int = 20,
     contamination: float = 0.1,
-    random_state: Optional[int] = None
+    random_state: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate dataset with collective outliers (small cluster of outliers).
@@ -183,7 +182,7 @@ def generate_contextual_outliers(
     n_samples: int = 1000,
     n_features: int = 20,
     contamination: float = 0.1,
-    random_state: Optional[int] = None
+    random_state: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate dataset with contextual outliers (outliers in specific context).
@@ -235,7 +234,7 @@ def generate_mixed_outliers(
     n_samples: int = 1000,
     n_features: int = 20,
     contamination: float = 0.1,
-    random_state: Optional[int] = None
+    random_state: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate dataset with mixed outlier types.
@@ -298,7 +297,7 @@ def generate_high_dimensional_outliers(
     n_samples: int = 1000,
     n_features: int = 100,
     contamination: float = 0.1,
-    random_state: Optional[int] = None
+    random_state: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate high-dimensional dataset with sparse outliers.
@@ -350,12 +349,12 @@ def generate_high_dimensional_outliers(
 
 # Dataset catalog
 DATASET_GENERATORS = {
-    'global': generate_global_outliers,
-    'local': generate_local_outliers,
-    'collective': generate_collective_outliers,
-    'contextual': generate_contextual_outliers,
-    'mixed': generate_mixed_outliers,
-    'high_dimensional': generate_high_dimensional_outliers,
+    "global": generate_global_outliers,
+    "local": generate_local_outliers,
+    "collective": generate_collective_outliers,
+    "contextual": generate_contextual_outliers,
+    "mixed": generate_mixed_outliers,
+    "high_dimensional": generate_high_dimensional_outliers,
 }
 
 
@@ -370,107 +369,104 @@ def get_benchmark_datasets() -> Dict[str, Dict]:
     """
     datasets = {
         # Small datasets (for quick testing)
-        'small_global': {
-            'generator': 'global',
-            'n_samples': 500,
-            'n_features': 10,
-            'contamination': 0.1,
-            'description': 'Small dataset with global outliers'
+        "small_global": {
+            "generator": "global",
+            "n_samples": 500,
+            "n_features": 10,
+            "contamination": 0.1,
+            "description": "Small dataset with global outliers",
         },
-        'small_local': {
-            'generator': 'local',
-            'n_samples': 500,
-            'n_features': 10,
-            'contamination': 0.1,
-            'n_clusters': 3,
-            'description': 'Small dataset with local outliers'
+        "small_local": {
+            "generator": "local",
+            "n_samples": 500,
+            "n_features": 10,
+            "contamination": 0.1,
+            "n_clusters": 3,
+            "description": "Small dataset with local outliers",
         },
-
         # Medium datasets
-        'medium_global': {
-            'generator': 'global',
-            'n_samples': 2000,
-            'n_features': 20,
-            'contamination': 0.05,
-            'description': 'Medium dataset with global outliers'
+        "medium_global": {
+            "generator": "global",
+            "n_samples": 2000,
+            "n_features": 20,
+            "contamination": 0.05,
+            "description": "Medium dataset with global outliers",
         },
-        'medium_mixed': {
-            'generator': 'mixed',
-            'n_samples': 2000,
-            'n_features': 20,
-            'contamination': 0.05,
-            'description': 'Medium dataset with mixed outlier types'
+        "medium_mixed": {
+            "generator": "mixed",
+            "n_samples": 2000,
+            "n_features": 20,
+            "contamination": 0.05,
+            "description": "Medium dataset with mixed outlier types",
         },
-
         # Large datasets
-        'large_global': {
-            'generator': 'global',
-            'n_samples': 10000,
-            'n_features': 30,
-            'contamination': 0.02,
-            'description': 'Large dataset with global outliers'
+        "large_global": {
+            "generator": "global",
+            "n_samples": 10000,
+            "n_features": 30,
+            "contamination": 0.02,
+            "description": "Large dataset with global outliers",
         },
-        'large_mixed': {
-            'generator': 'mixed',
-            'n_samples': 10000,
-            'n_features': 30,
-            'contamination': 0.02,
-            'description': 'Large dataset with mixed outliers'
+        "large_mixed": {
+            "generator": "mixed",
+            "n_samples": 10000,
+            "n_features": 30,
+            "contamination": 0.02,
+            "description": "Large dataset with mixed outliers",
         },
-
         # High-dimensional datasets
-        'high_dim_small': {
-            'generator': 'high_dimensional',
-            'n_samples': 1000,
-            'n_features': 100,
-            'contamination': 0.1,
-            'description': 'High-dimensional sparse outliers'
+        "high_dim_small": {
+            "generator": "high_dimensional",
+            "n_samples": 1000,
+            "n_features": 100,
+            "contamination": 0.1,
+            "description": "High-dimensional sparse outliers",
         },
-        'high_dim_large': {
-            'generator': 'high_dimensional',
-            'n_samples': 5000,
-            'n_features': 200,
-            'contamination': 0.05,
-            'description': 'Large high-dimensional sparse outliers'
+        "high_dim_large": {
+            "generator": "high_dimensional",
+            "n_samples": 5000,
+            "n_features": 200,
+            "contamination": 0.05,
+            "description": "Large high-dimensional sparse outliers",
         },
-
         # Different contamination levels
-        'low_contamination': {
-            'generator': 'global',
-            'n_samples': 2000,
-            'n_features': 20,
-            'contamination': 0.01,
-            'description': 'Very low contamination (1%)'
+        "low_contamination": {
+            "generator": "global",
+            "n_samples": 2000,
+            "n_features": 20,
+            "contamination": 0.01,
+            "description": "Very low contamination (1%)",
         },
-        'high_contamination': {
-            'generator': 'global',
-            'n_samples': 2000,
-            'n_features': 20,
-            'contamination': 0.20,
-            'description': 'High contamination (20%)'
+        "high_contamination": {
+            "generator": "global",
+            "n_samples": 2000,
+            "n_features": 20,
+            "contamination": 0.20,
+            "description": "High contamination (20%)",
         },
-
         # Specific outlier types
-        'collective_only': {
-            'generator': 'collective',
-            'n_samples': 2000,
-            'n_features': 20,
-            'contamination': 0.05,
-            'description': 'Only collective outliers'
+        "collective_only": {
+            "generator": "collective",
+            "n_samples": 2000,
+            "n_features": 20,
+            "contamination": 0.05,
+            "description": "Only collective outliers",
         },
-        'contextual_only': {
-            'generator': 'contextual',
-            'n_samples': 2000,
-            'n_features': 20,
-            'contamination': 0.05,
-            'description': 'Only contextual outliers'
+        "contextual_only": {
+            "generator": "contextual",
+            "n_samples": 2000,
+            "n_features": 20,
+            "contamination": 0.05,
+            "description": "Only contextual outliers",
         },
     }
 
     return datasets
 
 
-def generate_dataset(dataset_config: Dict, random_state: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
+def generate_dataset(
+    dataset_config: Dict, random_state: Optional[int] = None
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate dataset from configuration.
 
@@ -489,8 +485,8 @@ def generate_dataset(dataset_config: Dict, random_state: Optional[int] = None) -
         Labels (0=normal, 1=outlier)
     """
     config = dataset_config.copy()
-    generator_name = config.pop('generator')
-    config.pop('description', None)  # Remove description
+    generator_name = config.pop("generator")
+    config.pop("description", None)  # Remove description
 
     generator = DATASET_GENERATORS[generator_name]
 
@@ -513,12 +509,9 @@ def generate_scalability_datasets() -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
 
     for n_samples in sample_sizes:
         for n_features in feature_sizes:
-            name = f'n{n_samples}_d{n_features}'
+            name = f"n{n_samples}_d{n_features}"
             X, y = generate_global_outliers(
-                n_samples=n_samples,
-                n_features=n_features,
-                contamination=0.05,
-                random_state=42
+                n_samples=n_samples, n_features=n_features, contamination=0.05, random_state=42
             )
             datasets[name] = (X, y)
 

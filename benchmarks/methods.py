@@ -7,7 +7,7 @@ import numpy as np
 from typing import Optional, Any
 import warnings
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 class OutlierDetectorWrapper:
@@ -18,7 +18,7 @@ class OutlierDetectorWrapper:
         self.model = model
         self._fitted = False
 
-    def fit(self, X: np.ndarray) -> 'OutlierDetectorWrapper':
+    def fit(self, X: np.ndarray) -> "OutlierDetectorWrapper":
         """Fit the model."""
         self.model.fit(X)
         self._fitted = True
@@ -30,7 +30,7 @@ class OutlierDetectorWrapper:
             raise ValueError("Model must be fitted before prediction")
 
         # Different methods have different prediction interfaces
-        if hasattr(self.model, 'predict'):
+        if hasattr(self.model, "predict"):
             predictions = self.model.predict(X)
             # Convert sklearn format (-1, 1) to (1, 0)
             if np.min(predictions) == -1:
@@ -45,15 +45,15 @@ class OutlierDetectorWrapper:
             raise ValueError("Model must be fitted before scoring")
 
         # Try different scoring methods
-        if hasattr(self.model, 'decision_function'):
+        if hasattr(self.model, "decision_function"):
             scores = self.model.decision_function(X)
             # Negative scores = outliers for some methods
             return -scores
-        elif hasattr(self.model, 'score_samples'):
+        elif hasattr(self.model, "score_samples"):
             scores = self.model.score_samples(X)
             # Negative scores = outliers
             return -scores
-        elif hasattr(self.model, 'predict_proba'):
+        elif hasattr(self.model, "predict_proba"):
             # For probabilistic methods
             proba = self.model.predict_proba(X)
             if proba.shape[1] == 2:
@@ -84,44 +84,38 @@ def get_sklearn_methods(contamination: float = 0.1, random_state: Optional[int] 
 
     try:
         from sklearn.ensemble import IsolationForest
-        methods['IsolationForest'] = OutlierDetectorWrapper(
-            'IsolationForest',
-            IsolationForest(
-                contamination=contamination,
-                random_state=random_state,
-                n_jobs=-1
-            )
+
+        methods["IsolationForest"] = OutlierDetectorWrapper(
+            "IsolationForest",
+            IsolationForest(contamination=contamination, random_state=random_state, n_jobs=-1),
         )
     except ImportError:
         pass
 
     try:
         from sklearn.neighbors import LocalOutlierFactor
-        methods['LOF'] = OutlierDetectorWrapper(
-            'LOF',
-            LocalOutlierFactor(
-                contamination=contamination,
-                novelty=True,
-                n_jobs=-1
-            )
+
+        methods["LOF"] = OutlierDetectorWrapper(
+            "LOF", LocalOutlierFactor(contamination=contamination, novelty=True, n_jobs=-1)
         )
     except ImportError:
         pass
 
     try:
         from sklearn.svm import OneClassSVM
-        methods['OneClassSVM'] = OutlierDetectorWrapper(
-            'OneClassSVM',
-            OneClassSVM(nu=contamination)
+
+        methods["OneClassSVM"] = OutlierDetectorWrapper(
+            "OneClassSVM", OneClassSVM(nu=contamination)
         )
     except ImportError:
         pass
 
     try:
         from sklearn.covariance import EllipticEnvelope
-        methods['EllipticEnvelope'] = OutlierDetectorWrapper(
-            'EllipticEnvelope',
-            EllipticEnvelope(contamination=contamination, random_state=random_state)
+
+        methods["EllipticEnvelope"] = OutlierDetectorWrapper(
+            "EllipticEnvelope",
+            EllipticEnvelope(contamination=contamination, random_state=random_state),
         )
     except ImportError:
         pass
@@ -147,72 +141,64 @@ def get_pyod_methods(contamination: float = 0.1):
 
     try:
         from pyod.models.knn import KNN
-        methods['KNN'] = OutlierDetectorWrapper(
-            'KNN',
-            KNN(contamination=contamination)
-        )
+
+        methods["KNN"] = OutlierDetectorWrapper("KNN", KNN(contamination=contamination))
     except ImportError:
         pass
 
     try:
         from pyod.models.lof import LOF as PyOD_LOF
-        methods['PyOD_LOF'] = OutlierDetectorWrapper(
-            'PyOD_LOF',
-            PyOD_LOF(contamination=contamination)
+
+        methods["PyOD_LOF"] = OutlierDetectorWrapper(
+            "PyOD_LOF", PyOD_LOF(contamination=contamination)
         )
     except ImportError:
         pass
 
     try:
         from pyod.models.ocsvm import OCSVM
-        methods['PyOD_OCSVM'] = OutlierDetectorWrapper(
-            'PyOD_OCSVM',
-            OCSVM(contamination=contamination)
+
+        methods["PyOD_OCSVM"] = OutlierDetectorWrapper(
+            "PyOD_OCSVM", OCSVM(contamination=contamination)
         )
     except ImportError:
         pass
 
     try:
         from pyod.models.iforest import IForest
-        methods['PyOD_IForest'] = OutlierDetectorWrapper(
-            'PyOD_IForest',
-            IForest(contamination=contamination)
+
+        methods["PyOD_IForest"] = OutlierDetectorWrapper(
+            "PyOD_IForest", IForest(contamination=contamination)
         )
     except ImportError:
         pass
 
     try:
         from pyod.models.copod import COPOD
-        methods['COPOD'] = OutlierDetectorWrapper(
-            'COPOD',
-            COPOD(contamination=contamination)
-        )
+
+        methods["COPOD"] = OutlierDetectorWrapper("COPOD", COPOD(contamination=contamination))
     except ImportError:
         pass
 
     try:
         from pyod.models.ecod import ECOD
-        methods['ECOD'] = OutlierDetectorWrapper(
-            'ECOD',
-            ECOD(contamination=contamination)
-        )
+
+        methods["ECOD"] = OutlierDetectorWrapper("ECOD", ECOD(contamination=contamination))
     except ImportError:
         pass
 
     try:
         from pyod.models.hbos import HBOS
-        methods['HBOS'] = OutlierDetectorWrapper(
-            'HBOS',
-            HBOS(contamination=contamination)
-        )
+
+        methods["HBOS"] = OutlierDetectorWrapper("HBOS", HBOS(contamination=contamination))
     except ImportError:
         pass
 
     try:
         from pyod.models.pca import PCA as PyOD_PCA
-        methods['PyOD_PCA'] = OutlierDetectorWrapper(
-            'PyOD_PCA',
-            PyOD_PCA(contamination=contamination)
+
+        methods["PyOD_PCA"] = OutlierDetectorWrapper(
+            "PyOD_PCA", PyOD_PCA(contamination=contamination)
         )
     except ImportError:
         pass
@@ -239,17 +225,14 @@ def get_psod_method(contamination: Optional[float] = None, random_state: Optiona
     try:
         import sys
         from pathlib import Path
-        sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+
+        sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
         from psod import PSOD
 
-        model = PSOD(
-            contamination=contamination,
-            random_seed=random_state,
-            n_jobs=-1
-        )
+        model = PSOD(contamination=contamination, random_seed=random_state, n_jobs=-1)
 
-        return OutlierDetectorWrapper('PSOD', model)
+        return OutlierDetectorWrapper("PSOD", model)
 
     except ImportError as e:
         print(f"Warning: Could not import PSOD: {e}")
@@ -277,7 +260,7 @@ def get_all_methods(contamination: float = 0.1, random_state: Optional[int] = No
     # Add PSOD
     psod = get_psod_method(contamination, random_state)
     if psod is not None:
-        methods['PSOD'] = psod
+        methods["PSOD"] = psod
 
     # Add sklearn methods
     sklearn_methods = get_sklearn_methods(contamination, random_state)
@@ -291,9 +274,7 @@ def get_all_methods(contamination: float = 0.1, random_state: Optional[int] = No
 
 
 def get_method_subset(
-    methods: str = 'fast',
-    contamination: float = 0.1,
-    random_state: Optional[int] = None
+    methods: str = "fast", contamination: float = 0.1, random_state: Optional[int] = None
 ):
     """
     Get subset of methods based on category.
@@ -314,22 +295,22 @@ def get_method_subset(
     """
     all_methods = get_all_methods(contamination, random_state)
 
-    if methods == 'all':
+    if methods == "all":
         return all_methods
 
-    elif methods == 'basic':
+    elif methods == "basic":
         # Basic sklearn methods + PSOD
-        basic_names = ['PSOD', 'IsolationForest', 'LOF', 'OneClassSVM']
+        basic_names = ["PSOD", "IsolationForest", "LOF", "OneClassSVM"]
         return {k: v for k, v in all_methods.items() if k in basic_names}
 
-    elif methods == 'fast':
+    elif methods == "fast":
         # Fast methods suitable for large datasets
-        fast_names = ['PSOD', 'IsolationForest', 'COPOD', 'ECOD', 'HBOS']
+        fast_names = ["PSOD", "IsolationForest", "COPOD", "ECOD", "HBOS"]
         return {k: v for k, v in all_methods.items() if k in fast_names}
 
-    elif methods == 'accurate':
+    elif methods == "accurate":
         # Methods known for high accuracy
-        accurate_names = ['PSOD', 'IsolationForest', 'LOF', 'COPOD']
+        accurate_names = ["PSOD", "IsolationForest", "LOF", "COPOD"]
         return {k: v for k, v in all_methods.items() if k in accurate_names}
 
     else:
