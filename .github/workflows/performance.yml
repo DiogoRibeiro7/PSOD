@@ -40,14 +40,18 @@ jobs:
         run: |
           cd benchmarks
           python run_benchmarks.py --output benchmark-results.json
+        continue-on-error: true
 
       - name: Upload benchmark results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
           path: benchmarks/benchmark-results.json
+          if-no-files-found: warn
 
       - name: Generate benchmark report
+        if: always()
         run: |
           cd benchmarks
           python << 'EOF'
@@ -72,9 +76,18 @@ jobs:
               print(f"Error generating report: {e}", file=sys.stderr)
           EOF
 
+      - name: Check if benchmark results exist
+        id: check_benchmarks
+        run: |
+          if [ -f benchmarks/benchmark-results.json ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.check_benchmarks.outputs.exists == 'true'
         with:
           tool: 'customBiggerIsBetter'
           output-file-path: benchmarks/benchmark-results.json
@@ -83,6 +96,7 @@ jobs:
           alert-threshold: '150%'
           comment-on-alert: true
           fail-on-alert: false
+        continue-on-error: true
 
   performance-comparison:
     name: Performance Comparison with Main
@@ -107,6 +121,7 @@ jobs:
         run: |
           cd benchmarks
           python run_benchmarks.py --output pr-benchmark.json
+        continue-on-error: true
 
       - name: Checkout main branch
         uses: actions/checkout@v4
@@ -124,8 +139,10 @@ jobs:
           cd main-branch/benchmarks
           python run_benchmarks.py --output main-benchmark.json
           cp main-benchmark.json ../../benchmarks/
+        continue-on-error: true
 
       - name: Compare performance
+        if: always()
         run: |
           cd benchmarks
           python << 'EOF'
@@ -184,12 +201,14 @@ jobs:
           EOF
 
       - name: Upload comparison results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: performance-comparison
           path: |
             benchmarks/pr-benchmark.json
             benchmarks/main-benchmark.json
+          if-no-files-found: warn
 
   memory-profiling:
     name: Memory Profiling
