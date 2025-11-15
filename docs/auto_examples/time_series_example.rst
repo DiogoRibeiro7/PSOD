@@ -27,16 +27,17 @@ This module demonstrates:
 - Real-time anomaly detection
 - Time series visualization
 
-.. GENERATED FROM PYTHON SOURCE LINES 11-511
+.. GENERATED FROM PYTHON SOURCE LINES 11-512
 
 .. code-block:: Python
 
 
-    import pandas as pd
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from datetime import datetime, timedelta
     import warnings
+    from datetime import datetime, timedelta
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
 
     warnings.filterwarnings("ignore")
 
@@ -47,7 +48,7 @@ This module demonstrates:
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
     from psod import PSOD, evaluate_outlier_detection
-    from psod.visualization import plot_timeseries_outliers, plot_outlier_scores
+    from psod.visualization import plot_outlier_scores, plot_timeseries_outliers
 
 
     def generate_time_series_data(n_samples=500, freq="H", n_outliers=20, seed=42):

@@ -28,18 +28,19 @@ This module demonstrates:
 - Parameter tuning and optimization
 - Model persistence (save/load)
 
-.. GENERATED FROM PYTHON SOURCE LINES 12-539
+.. GENERATED FROM PYTHON SOURCE LINES 12-540
 
 .. code-block:: Python
 
 
-    import pandas as pd
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-    from sklearn.linear_model import Ridge, Lasso
-    from sklearn.model_selection import cross_val_score
     import warnings
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+    from sklearn.linear_model import Lasso, Ridge
+    from sklearn.model_selection import cross_val_score
 
     warnings.filterwarnings("ignore")
 
@@ -51,15 +52,15 @@ This module demonstrates:
 
     from psod import (
         PSOD,
-        save_model,
-        load_model,
-        evaluate_outlier_detection,
         compute_feature_importance,
+        evaluate_outlier_detection,
+        load_model,
+        save_model,
     )
     from psod.visualization import (
-        plot_outlier_scores,
-        plot_feature_contributions,
         create_outlier_dashboard,
+        plot_feature_contributions,
+        plot_outlier_scores,
         plot_roc_pr_curves,
     )
 

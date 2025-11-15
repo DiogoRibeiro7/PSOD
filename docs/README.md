@@ -12,8 +12,14 @@ pip install -r requirements.txt
 
 ### Build HTML Documentation
 
+**Linux/macOS:**
 ```bash
 make html
+```
+
+**Windows (if make doesn't work):**
+```bash
+python -m sphinx -M html . _build
 ```
 
 The built documentation will be in `_build/html/`. Open `_build/html/index.html` in your browser.
@@ -118,6 +124,14 @@ make html
 ```bash
 pip install -r requirements.txt --upgrade
 ```
+
+### Pandoc Missing Error
+
+If you see `PandocMissing` error, Pandoc is required for Jupyter notebook conversion. The `pypandoc` package (included in `requirements.txt`) bundles Pandoc automatically. If issues persist, install Pandoc manually:
+
+- **Windows**: `winget install --source winget --exact --id JohnMacFarlane.Pandoc`
+- **macOS**: `brew install pandoc`
+- **Linux**: `sudo apt-get install pandoc` or `sudo yum install pandoc`
 
 ### Broken Links
 

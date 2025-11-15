@@ -2,15 +2,14 @@
 Basic usage example for PSOD outlier detection.
 """
 
-import pandas as pd
-import numpy as np
-from sklearn.linear_model import Ridge
-from category_encoders import OneHotEncoder
-
-
 # For development, add parent directory to path
 import sys
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from category_encoders import OneHotEncoder
+from sklearn.linear_model import Ridge
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -62,47 +61,51 @@ def basic_example():
     print(f"Min: {outlier_scores.min():.4f}")
     print(f"Max: {outlier_scores.max():.4f}")
 
+    outlier_indices = df.index[outlier_labels == 1].tolist()
     print(f"\nNumber of outliers detected: {sum(outlier_labels)}")
-    print(f"Outlier indices: {df.index[outlier_labels == 1].tolist()}")
+    print(f"Outlier indices: {outlier_indices}")
 
     # Visualize outlier scores
     try:
+        import matplotlib.pyplot as plt
+
         from psod.visualization import (
+            plot_feature_contributions,
             plot_outlier_scores,
             plot_outliers_scatter,
-            plot_feature_contributions,
         )
-        import matplotlib.pyplot as plt
 
         print("\nGenerating visualizations...")
 
         # Plot 1: Outlier scores distribution
-        fig1, ax1 = plt.subplots(figsize=(10, 6))
-        plot_outlier_scores(outlier_scores, outlier_labels, ax=ax1)
+        fig1 = plot_outlier_scores(outlier_scores, figsize=(12, 8))
         plt.tight_layout()
         plt.savefig("basic_outlier_scores.png", dpi=150, bbox_inches="tight")
         print("Saved: basic_outlier_scores.png")
+        plt.close(fig1)
 
         # Plot 2: 2D scatter plot of outliers
-        fig2, ax2 = plt.subplots(figsize=(10, 6))
-        plot_outliers_scatter(
-            df[["feature1", "feature2"]].values,
+        fig2 = plot_outliers_scatter(
+            df,
             outlier_labels,
-            outlier_scores,
-            feature_names=["feature1", "feature2"],
-            ax=ax2,
+            features=["feature1", "feature2"],
+            dim=2,
         )
-        plt.tight_layout()
-        plt.savefig("basic_outliers_scatter.png", dpi=150, bbox_inches="tight")
-        print("Saved: basic_outliers_scatter.png")
+        try:
+            fig2.write_image("basic_outliers_scatter.png", width=1000, height=600)
+            print("Saved: basic_outliers_scatter.png")
+        except (ValueError, ImportError):
+            # Fallback to HTML if kaleido is not installed
+            fig2.write_html("basic_outliers_scatter.html")
+            print("Saved: basic_outliers_scatter.html (install kaleido for PNG export)")
 
-        # Plot 3: Feature contributions
-        if hasattr(detector, "feature_importances_") and detector.feature_importances_ is not None:
-            fig3, ax3 = plt.subplots(figsize=(10, 6))
-            plot_feature_contributions(detector.feature_importances_, ax=ax3)
+        # Plot 3: Feature contributions for top outlier
+        if len(outlier_indices) > 0:
+            fig3 = plot_feature_contributions(detector, sample_idx=outlier_indices[0], top_k=10)
             plt.tight_layout()
             plt.savefig("basic_feature_contributions.png", dpi=150, bbox_inches="tight")
             print("Saved: basic_feature_contributions.png")
+            plt.close(fig3)
 
         print("\nVisualization complete!")
 

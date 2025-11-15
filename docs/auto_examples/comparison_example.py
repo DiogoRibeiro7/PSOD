@@ -10,18 +10,18 @@ This module demonstrates:
 - Visual comparison of results
 """
 
+import time
+import warnings
 from typing import Any, Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.covariance import EllipticEnvelope
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
-from sklearn.svm import OneClassSVM
-from sklearn.covariance import EllipticEnvelope
 from sklearn.preprocessing import StandardScaler
-import time
-import warnings
+from sklearn.svm import OneClassSVM
 
 warnings.filterwarnings("ignore")
 

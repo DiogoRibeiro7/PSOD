@@ -40,24 +40,25 @@ Usage examples:
     # Generate report
     python cli_examples.py report --input data.csv --output report.html
 
-.. GENERATED FROM PYTHON SOURCE LINES 24-579
+.. GENERATED FROM PYTHON SOURCE LINES 24-581
 
 .. code-block:: Python
 
 
     import argparse
-    import sys
-    from pathlib import Path
-    import pandas as pd
-    import numpy as np
     import json
     import pickle
+    import sys
     from datetime import datetime
+    from pathlib import Path
+
+    import numpy as np
+    import pandas as pd
 
     # For development, add parent directory to path
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-    from psod import PSOD, save_model, load_model, evaluate_outlier_detection
+    from psod import PSOD, evaluate_outlier_detection, load_model, save_model
 
 
     def detect_outliers(args):
@@ -235,8 +236,9 @@ Usage examples:
 
         matplotlib.use("Agg")  # Non-interactive backend
         import matplotlib.pyplot as plt
-        from psod.visualization import plot_outlier_scores, plot_feature_contributions
+
         from psod import compute_feature_importance
+        from psod.visualization import plot_feature_contributions, plot_outlier_scores
 
         # Create figures
         fig1, ax1 = plt.subplots(figsize=(12, 6))

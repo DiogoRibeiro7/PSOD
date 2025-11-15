@@ -9,11 +9,9 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.9"
+  apt_packages:
+    - pandoc
   jobs:
-    pre_build:
-      # Install any system dependencies
-      - apt-get update
-      - apt-get install -y pandoc
     post_build:
       # Run link checker
       - cd docs && make linkcheck || true

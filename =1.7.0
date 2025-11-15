@@ -1,0 +1,6 @@
+Defaulting to user installation because normal site-packages is not writeable
+Collecting pypandoc
+  Downloading pypandoc-1.16.2-py3-none-any.whl.metadata (16 kB)
+Downloading pypandoc-1.16.2-py3-none-any.whl (19 kB)
+Installing collected packages: pypandoc
+Successfully installed pypandoc-1.16.2
