@@ -2,18 +2,19 @@
 Visualization functions for PSOD outlier detection.
 """
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.graph_objects as go
-import plotly.express as px
-import plotly.subplots as sp
-import pandas as pd
-import numpy as np
-from typing import Optional, List, Tuple, Union, Dict, Any
-from sklearn.decomposition import PCA
-from sklearn.metrics import roc_curve, precision_recall_curve, auc
-from sklearn.preprocessing import StandardScaler
 import warnings
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import plotly.subplots as sp
+import seaborn as sns
+from sklearn.decomposition import PCA
+from sklearn.metrics import auc, precision_recall_curve, roc_curve
+from sklearn.preprocessing import StandardScaler
 
 
 def plot_outlier_scores(
@@ -73,12 +74,24 @@ def plot_outlier_scores(
                     patch.set_alpha(0.8)
 
             ax1.axvline(
-                low_threshold, color="red", linestyle="--", linewidth=2, label=f"Low: {low_threshold:.3f}"
+                low_threshold,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+                label=f"Low: {low_threshold:.3f}",
             )
             ax1.axvline(
-                high_threshold, color="red", linestyle="--", linewidth=2, label=f"High: {high_threshold:.3f}"
+                high_threshold,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+                label=f"High: {high_threshold:.3f}",
             )
-            outlier_pct = np.sum((scores_array < low_threshold) | (scores_array > high_threshold)) / len(scores_array) * 100
+            outlier_pct = (
+                np.sum((scores_array < low_threshold) | (scores_array > high_threshold))  # type: ignore
+                / len(scores_array)
+                * 100
+            )
             ax1.text(
                 0.02,
                 0.98,
@@ -95,9 +108,13 @@ def plot_outlier_scores(
                     patch.set_alpha(0.8)
 
             ax1.axvline(
-                threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold: {threshold:.3f}"
+                threshold,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+                label=f"Threshold: {threshold:.3f}",
             )
-            outlier_pct = np.sum(scores_array > threshold) / len(scores_array) * 100
+            outlier_pct = np.sum(scores_array > threshold) / len(scores_array) * 100  # type: ignore
             ax1.text(
                 0.02,
                 0.98,
@@ -117,7 +134,7 @@ def plot_outlier_scores(
     # 2. Box plot
     bp = ax2.boxplot(
         scores_array,
-        orientation='vertical',
+        orientation="vertical",
         patch_artist=True,
         widths=0.5,
         showmeans=True,
@@ -134,14 +151,26 @@ def plot_outlier_scores(
         if isinstance(threshold, tuple):
             low_threshold, high_threshold = threshold
             ax2.axhline(
-                low_threshold, color="red", linestyle="--", linewidth=2, label=f"Low: {low_threshold:.3f}"
+                low_threshold,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+                label=f"Low: {low_threshold:.3f}",
             )
             ax2.axhline(
-                high_threshold, color="red", linestyle="--", linewidth=2, label=f"High: {high_threshold:.3f}"
+                high_threshold,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+                label=f"High: {high_threshold:.3f}",
             )
         else:
             ax2.axhline(
-                threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold: {threshold:.3f}"
+                threshold,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+                label=f"Threshold: {threshold:.3f}",
             )
         ax2.legend()
 
@@ -156,7 +185,7 @@ def plot_outlier_scores(
     # Skip Q-Q plot for very small samples to avoid warnings
     if len(scores_array) >= 3:
         with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', category=Warning)
+            warnings.filterwarnings("ignore", category=Warning)
             stats.probplot(scores_array, dist="norm", plot=ax3)
         ax3.set_title("Q-Q Plot vs Normal Distribution")
         ax3.grid(True, alpha=0.3)
@@ -167,8 +196,14 @@ def plot_outlier_scores(
             ax3.get_lines()[1].set_color("red")
             ax3.get_lines()[1].set_linewidth(2)
     else:
-        ax3.text(0.5, 0.5, f'Insufficient data for Q-Q plot\n(n={len(scores_array)} < 3)',
-                ha='center', va='center', transform=ax3.transAxes)
+        ax3.text(
+            0.5,
+            0.5,
+            f"Insufficient data for Q-Q plot\n(n={len(scores_array)} < 3)",
+            ha="center",
+            va="center",
+            transform=ax3.transAxes,
+        )
         ax3.set_title("Q-Q Plot vs Normal Distribution")
         ax3.grid(True, alpha=0.3)
 
@@ -178,18 +213,37 @@ def plot_outlier_scores(
     ax4.plot(sorted_scores, cumulative_pct, linewidth=2, color="steelblue")
 
     if threshold is not None:
-        threshold_pct = np.sum(scores_array <= threshold) / len(scores_array) * 100
-        ax4.axvline(threshold, color="red", linestyle="--", linewidth=2)
-        ax4.axhline(threshold_pct, color="red", linestyle="--", linewidth=2)
-        ax4.plot(threshold, threshold_pct, "ro", markersize=10, label=f"{threshold_pct:.1f}%")
-        ax4.text(
-            threshold,
-            threshold_pct + 5,
-            f"{threshold_pct:.1f}%",
-            ha="center",
-            va="bottom",
-            fontweight="bold",
-        )
+        if isinstance(threshold, tuple):
+            # Handle tuple thresholds (both ends)
+            low_threshold, high_threshold = threshold
+            ax4.axvline(
+                low_threshold,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+                label=f"Low: {low_threshold:.3f}",
+            )
+            ax4.axvline(
+                high_threshold,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+                label=f"High: {high_threshold:.3f}",
+            )
+        else:
+            # Handle single threshold
+            threshold_pct = np.sum(scores_array <= threshold) / len(scores_array) * 100  # type: ignore
+            ax4.axvline(threshold, color="red", linestyle="--", linewidth=2)
+            ax4.axhline(threshold_pct, color="red", linestyle="--", linewidth=2)
+            ax4.plot(threshold, threshold_pct, "ro", markersize=10, label=f"{threshold_pct:.1f}%")
+            ax4.text(
+                threshold,
+                threshold_pct + 5,
+                f"{threshold_pct:.1f}%",
+                ha="center",
+                va="bottom",
+                fontweight="bold",
+            )
 
     ax4.set_xlabel("Outlier Score")
     ax4.set_ylabel("Cumulative Percentage")
@@ -219,7 +273,7 @@ Max: {np.max(scores_array):.3f}"""
     )
 
     plt.suptitle(title, fontsize=16, y=0.98)
-    plt.tight_layout(rect=[0, 0.05, 1, 0.96])
+    plt.tight_layout(rect=(0, 0.05, 1, 0.96))
     return fig
 
 
@@ -242,10 +296,21 @@ def plot_feature_contributions(model, sample_idx: int, top_k: int = 10) -> plt.F
         Matplotlib figure object.
     """
     # Validate sample_idx
-    if hasattr(model, 'scores_') and model.scores_ is not None:
+    n_samples = None
+    if hasattr(model, "scores_") and model.scores_ is not None:
         n_samples = len(model.scores_)
+    elif hasattr(model, "n_samples_") and model.n_samples_ is not None:
+        n_samples = model.n_samples_
+    elif hasattr(model, "prediction_errors_") and model.prediction_errors_:
+        # Get number of samples from prediction errors
+        first_key = next(iter(model.prediction_errors_))
+        n_samples = len(model.prediction_errors_[first_key])
+
+    if n_samples is not None:
         if sample_idx < 0 or sample_idx >= n_samples:
-            raise IndexError(f"sample_idx {sample_idx} is out of bounds for model with {n_samples} samples")
+            raise IndexError(
+                f"sample_idx {sample_idx} is out of bounds for model with {n_samples} samples"
+            )
 
     # Extract feature-wise prediction errors
     if not hasattr(model, "feature_names_"):
@@ -264,7 +329,9 @@ def plot_feature_contributions(model, sample_idx: int, top_k: int = 10) -> plt.F
                 contributions.append(np.abs(errors[sample_idx]))
             else:
                 contributions.append(0)
-        contributions = np.array(contributions) if contributions else np.random.rand(len(feature_names))
+        contributions = (
+            np.array(contributions) if contributions else np.random.rand(len(feature_names))
+        )
     elif hasattr(model, "feature_importances_") and model.feature_importances_ is not None:
         # Fallback: use feature importance if available
         contributions = model.feature_importances_["importance"].values
@@ -522,7 +589,7 @@ def plot_correlation_heatmap(
     for col in X.columns:
         # For numerical features, calculate correlation with outlier labels
         with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', category=RuntimeWarning)
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
             outlier_corr = np.corrcoef(X[col], outlier_labels)[0, 1]
             # Handle NaN values (can occur with constant columns or all-zero labels)
             if np.isnan(outlier_corr):
@@ -532,18 +599,18 @@ def plot_correlation_heatmap(
     # Handle single feature case
     if len(X.columns) == 1:
         fig, ax = plt.subplots(1, 1, figsize=(figsize[0] // 2, figsize[1]))
-        col = X.columns[0]
+        feature_name: str = str(X.columns[0])
         ax.text(
             0.5,
             0.5,
-            f"Single Feature: {col}\n\nCorrelation with outliers:\n{outlier_pcts[col]:.3f}",
-            ha='center',
-            va='center',
+            f"Single Feature: {feature_name}\n\nCorrelation with outliers:\n{outlier_pcts[feature_name]:.3f}",
+            ha="center",
+            va="center",
             fontsize=14,
-            bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
+            bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.8),
         )
         ax.set_title("Feature Correlation Analysis")
-        ax.axis('off')
+        ax.axis("off")
         fig.tight_layout()
         return fig
 
@@ -756,6 +823,21 @@ def create_outlier_dashboard(
     plt.Figure
         Matplotlib figure object with comprehensive dashboard.
     """
+    # Validate inputs
+    if len(X) != len(outlier_scores) or len(X) != len(outlier_labels):
+        raise ValueError(
+            f"Length mismatch: X has {len(X)} samples, "
+            f"outlier_scores has {len(outlier_scores)}, "
+            f"outlier_labels has {len(outlier_labels)}"
+        )
+
+    # Validate labels are binary (0 or 1)
+    unique_labels = np.unique(outlier_labels)
+    if not np.all(np.isin(unique_labels, [0, 1])):
+        raise ValueError(
+            f"outlier_labels must contain only 0 and 1, but got unique values: {unique_labels}"
+        )
+
     # Create large figure with 4x4 grid
     fig = plt.figure(figsize=(24, 18))
 
@@ -763,10 +845,11 @@ def create_outlier_dashboard(
     gs = fig.add_gridspec(4, 4, hspace=0.3, wspace=0.3)
 
     # Determine threshold from labels
+    threshold: float
     if np.any(outlier_labels):
-        threshold = np.min(outlier_scores[outlier_labels == 1])
+        threshold = float(np.min(outlier_scores[outlier_labels == 1]))
     else:
-        threshold = np.percentile(outlier_scores, 95)
+        threshold = float(np.percentile(outlier_scores, 95))
 
     outlier_mask = outlier_labels == 1
     normal_mask = outlier_labels == 0
@@ -776,7 +859,9 @@ def create_outlier_dashboard(
     n, bins, patches = ax1.hist(
         outlier_scores, bins=40, alpha=0.7, color="skyblue", edgecolor="black"
     )
-    for patch, left, right in zip(patches, bins[:-1], bins[1:]):
+    from matplotlib.patches import Patch
+
+    for patch, left, right in zip(list(patches), bins[:-1], bins[1:]):  # type: ignore
         if right > threshold:
             patch.set_facecolor("red")
     ax1.axvline(threshold, color="red", linestyle="--", linewidth=2)
@@ -849,7 +934,7 @@ def create_outlier_dashboard(
     ax4.axis("off")
 
     n_total = len(outlier_labels)
-    n_outliers = np.sum(outlier_labels)
+    n_outliers: int = int(np.sum(outlier_labels))
     outlier_rate = n_outliers / n_total * 100
 
     stats_text = f"""Summary Statistics
@@ -930,9 +1015,10 @@ Threshold: {threshold:.4f}"""
     ax8 = fig.add_subplot(gs[2, 2:])
     if np.any(outlier_mask) and np.any(normal_mask):
         score_data = [outlier_scores[normal_mask], outlier_scores[outlier_mask]]
-        bp = ax8.boxplot(score_data, labels=["Normal", "Outliers"], patch_artist=True)
+        bp = ax8.boxplot(score_data, patch_artist=True)
         bp["boxes"][0].set_facecolor("lightblue")
         bp["boxes"][1].set_facecolor("lightcoral")
+        ax8.set_xticklabels(["Normal", "Outliers"])
         ax8.set_ylabel("Outlier Score")
         ax8.set_title("Score Distribution by Class")
         ax8.grid(True, alpha=0.3, axis="y")
@@ -994,7 +1080,7 @@ def create_interactive_explorer(X: pd.DataFrame, model, port: int = 8050) -> Non
     """
     try:
         import dash
-        from dash import dcc, html, Input, Output
+        from dash import Input, Output, dcc, html
     except ImportError:
         print("Dash is not installed. Please install it using: pip install dash")
         return

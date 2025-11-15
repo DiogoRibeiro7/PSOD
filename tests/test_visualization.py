@@ -3,20 +3,20 @@ Comprehensive unit tests for PSOD visualization module.
 Tests all static and interactive visualization functions.
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 import sys
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from psod import visualization as viz
 from psod import PSOD
-
+from psod import visualization as viz
 
 # ============================================================================
 # STATIC VISUALIZATION TESTS (Matplotlib/Seaborn)
@@ -213,18 +213,14 @@ class TestPlotFeatureContributions:
         """Test basic feature contribution plot."""
         sample_idx = 0
 
-        fig = viz.plot_feature_contributions(
-            model=fitted_psod_model, sample_idx=sample_idx
-        )
+        fig = viz.plot_feature_contributions(model=fitted_psod_model, sample_idx=sample_idx)
 
         assert fig is not None
         plt.close(fig)
 
     def test_contributions_topk(self, sample_numeric_data, fitted_psod_model):
         """Test with top-k features."""
-        fig = viz.plot_feature_contributions(
-            model=fitted_psod_model, sample_idx=0, top_k=5
-        )
+        fig = viz.plot_feature_contributions(model=fitted_psod_model, sample_idx=0, top_k=5)
 
         assert fig is not None
         plt.close(fig)

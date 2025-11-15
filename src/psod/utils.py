@@ -2,28 +2,29 @@
 Utility functions for PSOD.
 """
 
-import pickle
-import json
-import joblib
 import gzip
-import pandas as pd
-import numpy as np
-from typing import Dict, Any, Union, Optional, List, Tuple
+import json
 import logging
-from datetime import datetime
 import os
+import pickle
+import warnings
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import joblib
+import numpy as np
+import pandas as pd
+from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    precision_recall_curve,
     precision_score,
     recall_score,
-    f1_score,
     roc_auc_score,
-    average_precision_score,
-    precision_recall_curve,
     roc_curve,
 )
-from sklearn.impute import SimpleImputer, KNNImputer
 from sklearn.preprocessing import StandardScaler
-import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -951,7 +952,7 @@ def compute_detailed_metrics(
         - confusion_matrix
         - auc_roc, auc_pr (if scores provided)
     """
-    from sklearn.metrics import confusion_matrix, accuracy_score
+    from sklearn.metrics import accuracy_score, confusion_matrix
 
     y_true_binary = y_true.astype(int)
     y_pred_binary = y_pred.astype(int)

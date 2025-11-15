@@ -3,14 +3,15 @@ Comprehensive unit tests for PSOD outlier detection core module.
 Tests all core functionality, edge cases, and sklearn compatibility.
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-from sklearn.linear_model import LinearRegression, Ridge
-from sklearn.ensemble import RandomForestRegressor
-from pathlib import Path
 import pickle
 import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression, Ridge
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -19,7 +20,7 @@ from psod import PSOD
 
 # Try importing optional encoders
 try:
-    from category_encoders import TargetEncoder, OneHotEncoder
+    from category_encoders import OneHotEncoder, TargetEncoder
 
     HAS_ENCODERS = True
 except ImportError:
@@ -330,7 +331,7 @@ class TestPSODPersistence:
 
         # Save model
         psod.save_model(str(tmp_model_path))
-        assert tmp_model_path.with_suffix('.pkl').exists()
+        assert tmp_model_path.with_suffix(".pkl").exists()
 
         # Load model
         loaded_psod = PSOD.load_model(str(tmp_model_path))
@@ -772,7 +773,7 @@ class TestPSODIntegration:
         # 5. Save model
         psod.save_model(str(tmp_model_path))
         # save_model adds .pkl extension
-        assert tmp_model_path.with_suffix('.pkl').exists()
+        assert tmp_model_path.with_suffix(".pkl").exists()
 
         # 6. Load model
         loaded_psod = PSOD.load_model(str(tmp_model_path))

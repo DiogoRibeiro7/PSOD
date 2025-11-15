@@ -2,26 +2,27 @@
 Core PSOD implementation.
 """
 
-from typing import List, Union, Dict, Type, Optional, Tuple, Any, Literal
-import warnings
-import pandas as pd
-import numpy as np
-from sklearn.base import RegressorMixin, BaseEstimator
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PowerTransformer, QuantileTransformer
-from sklearn.model_selection import cross_val_score
-from sklearn.feature_selection import mutual_info_regression
-from sklearn.impute import SimpleImputer, KNNImputer
-from tqdm import tqdm
 import gc
-import pickle
-import joblib
-from datetime import datetime
-import os
-from category_encoders import BaseNEncoder, TargetEncoder
 
 # Add logging throughout the class
 import logging
+import os
+import pickle
+import warnings
+from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional, Tuple, Type, Union
+
+import joblib
+import numpy as np
+import pandas as pd
+from category_encoders import BaseNEncoder, TargetEncoder
+from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.feature_selection import mutual_info_regression
+from sklearn.impute import KNNImputer, SimpleImputer
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import cross_val_score
+from sklearn.preprocessing import PowerTransformer, QuantileTransformer
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -327,8 +328,7 @@ class PSOD(BaseEstimator):
         # Handle case where no columns are available
         if len(df.columns) == 0:
             warnings.warn(
-                "No columns available for selection. Cannot build regression model.",
-                UserWarning
+                "No columns available for selection. Cannot build regression model.", UserWarning
             )
             return []
 
@@ -784,7 +784,9 @@ class PSOD(BaseEstimator):
 
         logger.debug(f"Calculated feature importances for {len(combined_importance)} features")
 
-    def fit_predict(self, df: Union[pd.DataFrame, np.ndarray], return_class: bool = False) -> Union[pd.Series, np.ndarray]:
+    def fit_predict(
+        self, df: Union[pd.DataFrame, np.ndarray], return_class: bool = False
+    ) -> Union[pd.Series, np.ndarray]:
         """
         Train PSOD and return outlier predictions.
 
@@ -855,7 +857,7 @@ class PSOD(BaseEstimator):
             if len(nb_cols_options) == 0:
                 warnings.warn(
                     "No columns available for selection. Cannot build regression model.",
-                    UserWarning
+                    UserWarning,
                 )
                 chosen_columns = []
             else:
@@ -907,7 +909,10 @@ class PSOD(BaseEstimator):
 
             # Fit regressor
             if "n_jobs" in self.base_learner().get_params().keys():
-                learner_params = {**self.learner_kwargs, 'n_jobs': 1}  # Use n_jobs=1 to avoid nested parallelism
+                learner_params = {
+                    **self.learner_kwargs,
+                    "n_jobs": 1,
+                }  # Use n_jobs=1 to avoid nested parallelism
                 reg = self.base_learner(**learner_params).fit(
                     temp_df.loc[idx, chosen_columns], temp_df.loc[idx, col]
                 )
@@ -1130,12 +1135,16 @@ class PSOD(BaseEstimator):
         }
 
         if format == "pickle":
-            with open(f"{filepath}.pkl", "wb") as f:
+            if not filepath.endswith(".pkl"):
+                filepath += ".pkl"
+            with open(filepath, "wb") as f:
                 pickle.dump(model_data, f)
-            logger.info(f"Model saved to {filepath}.pkl")
+            logger.info(f"Model saved to {filepath}")
         elif format == "joblib":
-            joblib.dump(model_data, f"{filepath}.joblib")
-            logger.info(f"Model saved to {filepath}.joblib")
+            if not filepath.endswith(".joblib"):
+                filepath += ".joblib"
+            joblib.dump(model_data, filepath)
+            logger.info(f"Model saved to {filepath}")
         else:
             raise ValueError("Format must be 'pickle' or 'joblib'")
 

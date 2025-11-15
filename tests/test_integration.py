@@ -3,18 +3,18 @@ Integration tests for PSOD workflows.
 Tests complete end-to-end workflows combining multiple components.
 """
 
-import pytest
-import pandas as pd
-import numpy as np
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
 from sklearn.linear_model import LinearRegression, Ridge
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from psod import PSOD
-from psod import utils
+from psod import PSOD, utils
 
 try:
     from psod import visualization as viz
@@ -570,7 +570,7 @@ class TestModelSelection:
 
     def test_base_learner_comparison(self, sample_numeric_data, random_seed):
         """Test workflow comparing different base learners."""
-        from sklearn.linear_model import LinearRegression, Ridge, Lasso
+        from sklearn.linear_model import Lasso, LinearRegression, Ridge
 
         learners = {"LinearRegression": LinearRegression, "Ridge": Ridge, "Lasso": Lasso}
 

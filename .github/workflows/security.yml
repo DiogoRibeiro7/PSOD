@@ -319,7 +319,7 @@ jobs:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
+      security-events: read
       id-token: write
       contents: read
       actions: read
