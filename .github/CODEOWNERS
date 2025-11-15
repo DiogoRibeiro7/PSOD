@@ -1,0 +1,47 @@
+# CODEOWNERS file for PSOD
+# This file defines who is responsible for code in this repository
+# Each line is a file pattern followed by one or more owners
+
+# Default owner for everything in the repo
+* @diogoribeiro7
+
+# Core source code
+/src/ @diogoribeiro7
+
+# Tests
+/tests/ @diogoribeiro7
+
+# Documentation
+/docs/ @diogoribeiro7
+*.md @diogoribeiro7
+
+# Configuration files
+*.yml @diogoribeiro7
+*.yaml @diogoribeiro7
+*.toml @diogoribeiro7
+*.json @diogoribeiro7
+
+# GitHub workflows and actions
+/.github/ @diogoribeiro7
+
+# Security-related files
+/SECURITY.md @diogoribeiro7
+/.github/workflows/security.yml @diogoribeiro7
+
+# Dependency management
+/requirements.txt @diogoribeiro7
+/pyproject.toml @diogoribeiro7
+/setup.py @diogoribeiro7
+/.github/dependabot.yml @diogoribeiro7
+
+# CI/CD
+/.github/workflows/ci.yml @diogoribeiro7
+/.github/workflows/release.yml @diogoribeiro7
+
+# Docker
+/Dockerfile @diogoribeiro7
+/docker/ @diogoribeiro7
+
+# Examples and benchmarks
+/examples/ @diogoribeiro7
+/benchmarks/ @diogoribeiro7

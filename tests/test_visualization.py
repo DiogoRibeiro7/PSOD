@@ -733,8 +733,8 @@ class TestVisualizationIntegration:
         """Test complete workflow from model to all visualizations."""
         # Fit model
         model = PSOD(random_seed=random_seed, contamination=0.1)
-        predictions = model.fit_predict(sample_numeric_data)
-        scores = model.predict(sample_numeric_data, return_class=False)
+        scores = model.fit_predict(sample_numeric_data, return_class=False)
+        predictions = model.predict(sample_numeric_data, return_class=True)
 
         # Create all static visualizations
         fig1 = viz.plot_outlier_scores(scores=scores)
