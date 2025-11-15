@@ -2,19 +2,20 @@
 Evaluation metrics and utilities for benchmarking outlier detection methods.
 """
 
+import warnings
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Dict, Tuple, Optional
 from sklearn.metrics import (
-    roc_auc_score,
     average_precision_score,
+    confusion_matrix,
+    f1_score,
     precision_recall_curve,
     precision_score,
     recall_score,
-    f1_score,
-    confusion_matrix,
+    roc_auc_score,
 )
-import warnings
 
 warnings.filterwarnings("ignore")
 
@@ -130,9 +131,9 @@ def compute_precision_recall_at_k(
         k_values = [0.01, 0.02, 0.05, 0.10, 0.20]
 
     n_samples = len(y_true)
-    n_outliers = np.sum(y_true)
+    n_outliers: int = int(np.sum(y_true))
 
-    results = {"k": [], "precision": [], "recall": []}
+    results: Dict[str, Any] = {"k": [], "precision": [], "recall": []}
 
     for k_prop in k_values:
         k = max(1, int(n_samples * k_prop))
@@ -223,16 +224,16 @@ def compute_ranking_metrics(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[st
     sorted_labels = y_true[sorted_indices]
 
     # NDCG (Normalized Discounted Cumulative Gain)
-    n_outliers = np.sum(y_true)
+    n_outliers: int = int(np.sum(y_true))
     if n_outliers == 0:
         return {"ndcg": 0.0, "map": 0.0}
 
     # DCG
-    dcg = np.sum(sorted_labels / np.log2(np.arange(2, len(sorted_labels) + 2)))
+    dcg: float = float(np.sum(sorted_labels / np.log2(np.arange(2, len(sorted_labels) + 2))))
 
     # IDCG (ideal DCG)
     ideal_labels = np.sort(y_true)[::-1]
-    idcg = np.sum(ideal_labels / np.log2(np.arange(2, len(ideal_labels) + 2)))
+    idcg: float = float(np.sum(ideal_labels / np.log2(np.arange(2, len(ideal_labels) + 2))))
 
     ndcg = dcg / idcg if idcg > 0 else 0
 
@@ -245,7 +246,7 @@ def compute_ranking_metrics(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[st
 
     map_score = np.mean(precisions_at_k) if precisions_at_k else 0
 
-    return {"ndcg": ndcg, "map": map_score}
+    return {"ndcg": float(ndcg), "map": float(map_score)}
 
 
 def aggregate_metrics(results_list: list) -> pd.DataFrame:
@@ -298,7 +299,7 @@ def compare_methods(
         Comparison results with improvements
     """
     if baseline not in results_df["method"].values:
-        baseline = results_df["method"].values[0]
+        baseline = str(results_df["method"].values[0])
 
     baseline_score = results_df[results_df["method"] == baseline][metric].mean()
 

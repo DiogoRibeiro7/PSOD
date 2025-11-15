@@ -10,16 +10,18 @@ This module demonstrates:
 - Visual comparison of results
 """
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.ensemble import IsolationForest
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.svm import OneClassSVM
-from sklearn.covariance import EllipticEnvelope
-from sklearn.preprocessing import StandardScaler
 import time
 import warnings
+from typing import Any, Dict
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from sklearn.covariance import EllipticEnvelope
+from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import OneClassSVM
 
 warnings.filterwarnings("ignore")
 
@@ -117,7 +119,7 @@ def compare_all_methods():
         print(f"  Outliers: {sum(y_true)} ({100 * sum(y_true) / len(y_true):.1f}%)")
 
         contamination = sum(y_true) / len(y_true)
-        dataset_results = {}
+        dataset_results: Dict[str, Any] = {}
 
         for method_name, method_factory in methods.items():
             print(f"\n  Testing {method_name}...")
@@ -453,7 +455,7 @@ def scalability_comparison():
     sample_sizes = [100, 500, 1000, 2000, 5000]
     n_features = 10
 
-    results = {"PSOD": [], "Isolation Forest": [], "LOF": [], "One-Class SVM": []}
+    results: Dict[str, Any] = {"PSOD": [], "Isolation Forest": [], "LOF": [], "One-Class SVM": []}
 
     for n_samples in sample_sizes:
         print(f"Testing with {n_samples} samples...")

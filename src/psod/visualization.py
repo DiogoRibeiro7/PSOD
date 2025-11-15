@@ -457,10 +457,10 @@ def plot_outliers_scatter(
 
 
 def plot_timeseries_outliers(
-    X: pd.DataFrame = None,
-    data: pd.DataFrame = None,
-    outlier_labels: np.ndarray = None,
-    time_column: str = None,
+    X: Optional[pd.DataFrame] = None,
+    data: Optional[pd.DataFrame] = None,
+    outlier_labels: Optional[np.ndarray] = None,
+    time_column: Optional[str] = None,
     value_columns: Optional[List[str]] = None,
     title: str = "Time Series with Outliers",
 ) -> go.Figure:

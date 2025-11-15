@@ -345,7 +345,7 @@ class PSOD(BaseEstimator):
         # Ensure we don't try to select more columns than available
         nb_cols = min(nb_cols, len(df.columns))
 
-        return self.random_generator.choice(df.columns, nb_cols, replace=False).tolist()
+        return self.random_generator.choice(df.columns, nb_cols, replace=False).tolist()  # type: ignore[no-any-return]
 
     def correlation_feature_selection(self, df: pd.DataFrame, target_col: str) -> List[str]:
         """
@@ -386,7 +386,7 @@ class PSOD(BaseEstimator):
         List[str]
             List of intersecting elements.
         """
-        return np.intersect1d(lst1, lst2).tolist()
+        return np.intersect1d(lst1, lst2).tolist()  # type: ignore[no-any-return]
 
     def make_outlier_classes(self, df_scores: pd.DataFrame, use_trained_stats=True) -> pd.Series:
         """Convert outlier scores to binary labels."""
@@ -455,7 +455,7 @@ class PSOD(BaseEstimator):
             # Handle negative values by adding offset
             df_min = df.min().min()
             offset = abs(df_min) + 1 if df_min <= 0 else 0
-            return np.log1p(df + offset)
+            return np.log1p(df + offset)  # type: ignore[no-any-return]
 
         elif self.transform_algorithm == "yeo-johnson":
             scaler = PowerTransformer(method="yeo-johnson")
@@ -506,7 +506,7 @@ class PSOD(BaseEstimator):
             # Use same offset as in fitting
             df_min = df.min().min()
             offset = abs(df_min) + 1 if df_min <= 0 else 0
-            return np.log1p(df + offset)
+            return np.log1p(df + offset)  # type: ignore[no-any-return]
 
         elif (
             self.transform_algorithm in ["yeo-johnson", "box-cox", "quantile"]
@@ -644,7 +644,7 @@ class PSOD(BaseEstimator):
                 elif self.missing_value_strategy == "knn":
                     self.imputer_ = KNNImputer(n_neighbors=5)
 
-                df_imputed[numeric_cols] = self.imputer_.fit_transform(df[numeric_cols])
+                df_imputed[numeric_cols] = self.imputer_.fit_transform(df[numeric_cols])  # type: ignore[union-attr]
             else:
                 if self.imputer_ is not None:
                     df_imputed[numeric_cols] = self.imputer_.transform(df[numeric_cols])
@@ -684,7 +684,7 @@ class PSOD(BaseEstimator):
         importances = {}
 
         # Method 1: Average prediction error contribution
-        error_importances = {}
+        error_importances: dict = {}
         for target_col, regressor in self.regressors.items():
             feature_cols = self.chosen_columns.get(target_col, [])
 
@@ -731,10 +731,10 @@ class PSOD(BaseEstimator):
             if importance_list:
                 importances[feature] = np.mean(importance_list)
             else:
-                importances[feature] = 0.0
+                importances[feature] = 0.0  # type: ignore[assignment]
 
         # Method 2: Frequency of selection
-        selection_frequency = {}
+        selection_frequency: dict = {}
         total_models = len(self.regressors)
 
         for feature_cols in self.chosen_columns.values():
@@ -991,7 +991,7 @@ class PSOD(BaseEstimator):
         )
 
         # Return numpy array if input was numpy array (sklearn compatibility)
-        return result.values if input_was_array else result
+        return result.values if input_was_array else result  # type: ignore[return-value]
 
     def predict(
         self,
@@ -1101,7 +1101,7 @@ class PSOD(BaseEstimator):
         logger.info(f"Prediction completed for {len(df)} samples.")
 
         # Return numpy array if input was numpy array (sklearn compatibility)
-        return result.values if input_was_array else result
+        return result.values if input_was_array else result  # type: ignore[return-value]
 
     def save_model(self, filepath: str, format: str = "pickle") -> None:
         """
@@ -1239,7 +1239,7 @@ class PSOD(BaseEstimator):
         if method in ["default", "correlation"]:
             if self.feature_importances_ is None:
                 self._calculate_feature_importances()
-            return self.feature_importances_.copy()
+            return self.feature_importances_.copy()  # type: ignore[union-attr]
         elif method == "mutual_info":
             raise NotImplementedError("Mutual information method not yet implemented")
         else:
@@ -1260,7 +1260,7 @@ class PSOD(BaseEstimator):
             Anomaly scores.
         """
         result = self.predict(df, return_class=False)
-        return result.values if isinstance(result, pd.Series) else result
+        return result.values if isinstance(result, pd.Series) else result  # type: ignore[return-value]
 
     def decision_function(self, df: Union[pd.DataFrame, np.ndarray]) -> np.ndarray:
         """
@@ -1360,13 +1360,13 @@ class PSOD(BaseEstimator):
             stdevs = (
                 threshold_value - self.pred_distribution_stats["mean_score"]
             ) / self.pred_distribution_stats["std_score"]
-            self.stdevs_to_outlier = stdevs
+            self.stdevs_to_outlier = stdevs  # type: ignore[assignment]
         elif self.flag_outlier_on == "low end":
             threshold_value = np.percentile(self.scores, 100 * contamination)
             stdevs = (
                 self.pred_distribution_stats["mean_score"] - threshold_value
             ) / self.pred_distribution_stats["std_score"]
-            self.stdevs_to_outlier = stdevs
+            self.stdevs_to_outlier = stdevs  # type: ignore[assignment]
         else:  # both ends
             # Split contamination between both ends
             lower_threshold = np.percentile(self.scores, 100 * contamination / 2)
@@ -1378,7 +1378,7 @@ class PSOD(BaseEstimator):
             stdevs_upper = (
                 upper_threshold - self.pred_distribution_stats["mean_score"]
             ) / self.pred_distribution_stats["std_score"]
-            self.stdevs_to_outlier = (stdevs_lower + stdevs_upper) / 2
+            self.stdevs_to_outlier = (stdevs_lower + stdevs_upper) / 2  # type: ignore[assignment]
 
         logger.info(
             f"Threshold adjusted based on contamination={contamination:.3f}. "
@@ -1424,8 +1424,8 @@ class PSOD(BaseEstimator):
 
         # Get outlier score for this sample
         scores = self.predict(df.iloc[[sample_idx]])
-        outlier_score = scores.iloc[0]
-        is_outlier = self.predict(df.iloc[[sample_idx]], return_class=True).iloc[0]
+        outlier_score = scores.iloc[0]  # type: ignore[union-attr]
+        is_outlier = self.predict(df.iloc[[sample_idx]], return_class=True).iloc[0]  # type: ignore[union-attr]
 
         # Calculate feature contributions
         feature_contributions = {}

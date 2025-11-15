@@ -3,11 +3,12 @@ Dataset generation and loading for benchmarking.
 Provides various synthetic and real-world datasets with different outlier types.
 """
 
+import warnings
+from typing import Callable, Dict, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Tuple, Dict, Optional
-from sklearn.datasets import make_classification, make_blobs
-import warnings
+from sklearn.datasets import make_blobs, make_classification
 
 warnings.filterwarnings("ignore")
 
@@ -348,7 +349,7 @@ def generate_high_dimensional_outliers(
 
 
 # Dataset catalog
-DATASET_GENERATORS = {
+DATASET_GENERATORS: Dict[str, Callable[..., Tuple[np.ndarray, np.ndarray]]] = {
     "global": generate_global_outliers,
     "local": generate_local_outliers,
     "collective": generate_collective_outliers,

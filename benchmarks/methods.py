@@ -3,9 +3,10 @@ Outlier detection method wrappers for benchmarking.
 Provides consistent interface for different outlier detection methods.
 """
 
-import numpy as np
-from typing import Optional, Any
 import warnings
+from typing import Any, Optional, cast
+
+import numpy as np
 
 warnings.filterwarnings("ignore")
 
@@ -34,8 +35,8 @@ class OutlierDetectorWrapper:
             predictions = self.model.predict(X)
             # Convert sklearn format (-1, 1) to (1, 0)
             if np.min(predictions) == -1:
-                return (predictions == -1).astype(int)
-            return predictions
+                return cast(np.ndarray, (predictions == -1).astype(int))
+            return cast(np.ndarray, predictions)
         else:
             raise NotImplementedError(f"Predict not available for {self.name}")
 
@@ -48,17 +49,17 @@ class OutlierDetectorWrapper:
         if hasattr(self.model, "decision_function"):
             scores = self.model.decision_function(X)
             # Negative scores = outliers for some methods
-            return -scores
+            return cast(np.ndarray, -scores)
         elif hasattr(self.model, "score_samples"):
-            scores = self.model.score_samples(X)
+            scores_ = self.model.score_samples(X)
             # Negative scores = outliers
-            return -scores
+            return cast(np.ndarray, -scores_)
         elif hasattr(self.model, "predict_proba"):
             # For probabilistic methods
             proba = self.model.predict_proba(X)
             if proba.shape[1] == 2:
-                return proba[:, 1]  # Outlier probability
-            return proba
+                return cast(np.ndarray, proba[:, 1])  # Outlier probability
+            return cast(np.ndarray, proba)
         else:
             # Fallback to binary predictions
             return self.predict(X).astype(float)

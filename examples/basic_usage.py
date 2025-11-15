@@ -2,15 +2,14 @@
 Basic usage example for PSOD outlier detection.
 """
 
-import pandas as pd
-import numpy as np
-from sklearn.linear_model import Ridge
-from category_encoders import OneHotEncoder
-
-
 # For development, add parent directory to path
 import sys
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from category_encoders import OneHotEncoder
+from sklearn.linear_model import Ridge
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -67,12 +66,13 @@ def basic_example():
 
     # Visualize outlier scores
     try:
+        import matplotlib.pyplot as plt
+
         from psod.visualization import (
+            plot_feature_contributions,
             plot_outlier_scores,
             plot_outliers_scatter,
-            plot_feature_contributions,
         )
-        import matplotlib.pyplot as plt
 
         print("\nGenerating visualizations...")
 

@@ -30,7 +30,7 @@ try:
             outlier_type=outlier_type,
             random_state=42,
         )
-        n_outliers = np.sum(y)
+        n_outliers: int = int(np.sum(y))
         print(
             f"   ✓ Generated {outlier_type:12s} outliers: {X.shape[0]} samples, {int(n_outliers)} outliers"
         )

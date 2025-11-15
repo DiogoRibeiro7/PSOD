@@ -3,12 +3,13 @@ Visualization utilities for benchmark results.
 Creates comprehensive plots and charts for performance analysis.
 """
 
+import warnings
+from typing import Dict, List, Optional, Tuple
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import Dict, List, Optional, Tuple
-import warnings
 
 warnings.filterwarnings("ignore")
 
@@ -60,7 +61,7 @@ def plot_method_comparison(
     )
 
     # Highlight best method
-    best_idx = summary["mean"].idxmax()
+    best_idx = int(summary["mean"].idxmax())
     bars[best_idx].set_color("red")
     bars[best_idx].set_alpha(1.0)
 
@@ -121,11 +122,11 @@ def plot_performance_vs_time(
 
     # Create scatter plot
     for idx, row in summary.iterrows():
-        ax.scatter(row[time_metric], row[metric], s=200, alpha=0.7, label=row["method"])
+        ax.scatter(row[time_metric], row[metric], s=200, alpha=0.7, label=str(row["method"]))
         # Add method name
         ax.annotate(
-            row["method"],
-            (row[time_metric], row[metric]),
+            str(row["method"]),
+            (float(row[time_metric]), float(row[metric])),
             xytext=(5, 5),
             textcoords="offset points",
             fontsize=9,
@@ -448,7 +449,7 @@ def plot_memory_usage(
     # Add value labels
     for bar, value in zip(bars, memory_means):
         ax.text(
-            value,
+            float(value),
             bar.get_y() + bar.get_height() / 2,
             f"{value:.1f} MB",
             ha="left",
@@ -489,11 +490,12 @@ def plot_radar_chart(
     fig : plt.Figure
         Matplotlib figure
     """
-    import matplotlib.pyplot as plt
     from math import pi
 
+    import matplotlib.pyplot as plt
+
     if methods is None:
-        methods = results_df["method"].unique()[:5]  # Limit to 5 methods
+        methods = results_df["method"].unique()[:5].tolist()  # Limit to 5 methods
 
     # Aggregate data
     summary = results_df[results_df["method"].isin(methods)].groupby("method")[metrics].mean()

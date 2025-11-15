@@ -419,7 +419,7 @@ class TestThresholdSelection:
 
         assert isinstance(threshold, (float, np.floating))
         # About 10% should be above threshold
-        outliers = np.sum(sample_outlier_scores > threshold)
+        outliers: int = int(np.sum(sample_outlier_scores > threshold))
         assert 8 <= outliers <= 12  # Allow some tolerance
 
     def test_select_threshold_median(self, sample_outlier_scores):

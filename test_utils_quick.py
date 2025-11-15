@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 import numpy as np
 import pandas as pd
+
 from psod import utils
 
 print("=" * 60)
@@ -24,7 +25,7 @@ try:
             outlier_type=outlier_type,
             random_state=42,
         )
-        n_outliers = np.sum(y)
+        n_outliers: int = int(np.sum(y))
         print(
             f"   ✓ Generated {outlier_type} outliers: {X.shape[0]} samples, {n_outliers} outliers"
         )

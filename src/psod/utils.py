@@ -194,7 +194,7 @@ def validate_dataframe(
     Dict[str, Any]
         Validation results with warnings and errors.
     """
-    validation_results = {
+    validation_results: Dict[str, Any] = {
         "is_valid": True,
         "errors": [],
         "warnings": [],
@@ -304,7 +304,8 @@ def validate_dataframe(
         high_corr_pairs = []
         for i in range(len(corr_matrix.columns)):
             for j in range(i + 1, len(corr_matrix.columns)):
-                if corr_matrix.iloc[i, j] > 0.95:
+                if float(corr_matrix.iloc[i, j]) > 0.95:  # type: ignore[arg-type]
+                    corr_val = float(corr_matrix.iloc[i, j])  # type: ignore[arg-type]
                     high_corr_pairs.append(
                         (
                             corr_matrix.columns[i],
@@ -447,8 +448,8 @@ def calibrate_outlier_scores(scores: np.ndarray, contamination: float = 0.1) -> 
     calibrated_scores = np.copy(scores)
 
     # Min-max scaling to [0, 1] range
-    min_score = np.min(scores)
-    max_score = np.max(scores)
+    min_score: float = float(np.min(scores))
+    max_score: float = float(np.max(scores))
 
     if max_score > min_score:
         calibrated_scores = (scores - min_score) / (max_score - min_score)
@@ -462,7 +463,7 @@ def calibrate_outlier_scores(scores: np.ndarray, contamination: float = 0.1) -> 
                 calibrated_scores = np.power(calibrated_scores, power)
 
     logger.info(f"Scores calibrated for contamination level: {contamination}")
-    return calibrated_scores
+    return np.asarray(calibrated_scores)  # type: ignore[no-any-return]
 
 
 def combine_outlier_scores(
@@ -549,7 +550,7 @@ def combine_outlier_scores(
         )
 
     logger.info(f"Combined {len(scores_list)} score arrays using method: {method}")
-    return combined_scores
+    return np.asarray(combined_scores)  # type: ignore[no-any-return]
 
 
 def evaluate_outlier_detection(
@@ -594,7 +595,7 @@ def evaluate_outlier_detection(
         y_pred_binary = y_pred.astype(int)
 
     # Ensure y_true is binary
-    y_true_binary = y_true.astype(int)
+    y_true_binary: np.ndarray = y_true.astype(int)
 
     try:
         for metric in metrics:
@@ -644,8 +645,8 @@ def evaluate_outlier_detection(
         pass
 
     # Add summary statistics
-    n_outliers_true = np.sum(y_true_binary)
-    n_outliers_pred = np.sum(y_pred_binary)
+    n_outliers_true: int = int(np.sum(y_true_binary))
+    n_outliers_pred: int = int(np.sum(y_pred_binary))
     results["n_outliers_true"] = n_outliers_true
     results["n_outliers_pred"] = n_outliers_pred
     results["contamination_true"] = n_outliers_true / len(y_true_binary)
@@ -954,8 +955,8 @@ def compute_detailed_metrics(
     """
     from sklearn.metrics import accuracy_score, confusion_matrix
 
-    y_true_binary = y_true.astype(int)
-    y_pred_binary = y_pred.astype(int)
+    y_true_binary: np.ndarray = y_true.astype(int)
+    y_pred_binary: np.ndarray = y_pred.astype(int)
 
     # Confusion matrix components
     tn, fp, fn, tp = confusion_matrix(y_true_binary, y_pred_binary).ravel()
@@ -1058,7 +1059,7 @@ def select_threshold(
         )
 
     logger.info(f"Selected threshold: {threshold:.4f} using method: {method}")
-    return threshold
+    return float(threshold)
 
 
 def normalize_scores(scores: np.ndarray, method: str = "minmax", clip: bool = True) -> np.ndarray:
@@ -1086,8 +1087,8 @@ def normalize_scores(scores: np.ndarray, method: str = "minmax", clip: bool = Tr
     scores = np.asarray(scores).copy()
 
     if method == "minmax":
-        min_val = np.min(scores)
-        max_val = np.max(scores)
+        min_val: float = float(np.min(scores))
+        max_val: float = float(np.max(scores))
         if max_val > min_val:
             normalized = (scores - min_val) / (max_val - min_val)
         else:
@@ -1127,7 +1128,7 @@ def normalize_scores(scores: np.ndarray, method: str = "minmax", clip: bool = Tr
         normalized = np.clip(normalized, 0, 1)
 
     logger.debug(f"Normalized scores using method: {method}")
-    return normalized
+    return np.asarray(normalized)  # type: ignore[no-any-return]
 
 
 def remove_outliers(
@@ -1254,7 +1255,7 @@ def detect_feature_drift(
     numeric_cols = df_reference.select_dtypes(include=[np.number]).columns
     common_cols = list(set(numeric_cols) & set(df_current.columns))
 
-    drift_results = {
+    drift_results: Dict[str, Any] = {
         "drifted_features": [],
         "drift_scores": {},
         "statistics": {},

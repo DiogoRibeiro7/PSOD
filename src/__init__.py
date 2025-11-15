@@ -33,7 +33,7 @@ Example Usage:
 """
 
 import logging
-from typing import List
+from typing import Any, Dict, List, Optional
 
 # Add proper version management (using simple approach, can be enhanced with versioneer)
 __version__ = "0.1.0"
@@ -165,9 +165,9 @@ def get_package_info() -> dict:
     }
 
 
-def check_dependencies() -> dict:
+def check_dependencies() -> Dict[str, Any]:
     """Check if all required dependencies are available."""
-    dependencies = {"required": {}, "optional": {}, "missing": []}
+    dependencies: Dict[str, Any] = {"required": {}, "optional": {}, "missing": []}
 
     # Check required dependencies
     required_deps = [
@@ -217,7 +217,7 @@ def check_dependencies() -> dict:
     return dependencies
 
 
-def setup_logging(level: str = "INFO", format_string: str = None) -> None:
+def setup_logging(level: str = "INFO", format_string: Optional[str] = None) -> None:
     """
     Set up logging for the PSOD package.
 
@@ -299,7 +299,7 @@ loaded_detector = PSOD.load_model("my_psod_model")
 
 def list_available_functions():
     """List all available functions in the package."""
-    info = {
+    info: Dict[str, List[str]] = {
         "Core Functions": [],
         "Utility Functions": [],
         "Visualization Functions": [],

@@ -555,7 +555,7 @@ class TestModelSelection:
             model = PSOD(contamination=contamination, random_seed=42)
             labels = model.fit_predict(outlier_data, return_class=True)
 
-            outlier_count = np.sum(labels)
+            outlier_count: int = int(np.sum(labels))
             results.append(
                 {
                     "contamination": contamination,

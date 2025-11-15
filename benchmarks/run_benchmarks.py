@@ -5,39 +5,40 @@ Compare PSOD performance against other popular outlier detection methods
 across various datasets, metrics, and scenarios.
 """
 
+import sys
 import time
-import warnings
 import tracemalloc
+import warnings
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-import sys
 
 # Import benchmark modules
-from datasets import get_benchmark_datasets, generate_dataset, generate_scalability_datasets
+from datasets import generate_dataset, generate_scalability_datasets, get_benchmark_datasets
 from methods import get_all_methods, get_method_subset
 from metrics import (
+    aggregate_metrics,
+    compare_methods,
     compute_metrics,
+    compute_pr_curve_data,
     compute_precision_recall_at_k,
     compute_roc_curve_data,
-    compute_pr_curve_data,
-    compare_methods,
-    aggregate_metrics,
 )
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from visualization import (
-    plot_method_comparison,
-    plot_performance_vs_time,
-    plot_multi_metric_comparison,
-    plot_scalability,
-    plot_dataset_comparison,
-    plot_roc_curves,
-    plot_precision_recall_curves,
-    plot_memory_usage,
-    plot_radar_chart,
     create_benchmark_dashboard,
+    plot_dataset_comparison,
+    plot_memory_usage,
+    plot_method_comparison,
+    plot_multi_metric_comparison,
+    plot_performance_vs_time,
+    plot_precision_recall_curves,
+    plot_radar_chart,
+    plot_roc_curves,
+    plot_scalability,
 )
 
 warnings.filterwarnings("ignore")
@@ -61,10 +62,10 @@ class BenchmarkRunner:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True, parents=True)
 
-        self.results = []
-        self.scalability_results = {}
-        self.robustness_results = {}
-        self.memory_results = {}
+        self.results: List[Dict] = []
+        self.scalability_results: Dict[str, Any] = {}
+        self.robustness_results: Dict[str, Any] = {}
+        self.memory_results: Dict[str, Any] = {}
 
     def benchmark_method(
         self,
@@ -285,7 +286,7 @@ class BenchmarkRunner:
             method_subset, contamination=0.05, random_state=self.random_state
         )
 
-        results = {
+        results: Dict[str, Any] = {
             method_name: {"n_samples": [], "n_features": [], "train_time": [], "pred_time": []}
             for method_name in methods.keys()
         }
@@ -351,7 +352,11 @@ class BenchmarkRunner:
         print("ROBUSTNESS BENCHMARKING")
         print("=" * 70)
 
-        results = {"contamination_levels": [], "noise_levels": [], "dimensionality": []}
+        results: Dict[str, Any] = {
+            "contamination_levels": [],
+            "noise_levels": [],
+            "dimensionality": [],
+        }
 
         # Test 1: Different contamination levels
         print("\n1. Testing different contamination levels...")

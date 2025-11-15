@@ -14,9 +14,9 @@ if sys.platform == "win32":
 
     sys.stdout = codecs.getwriter("utf-8")(sys.stdout.buffer, "strict")
 
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
 
 matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
