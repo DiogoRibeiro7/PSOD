@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install black isort flake8 pylint mypy bandit safety
+          pip install black isort flake8 pylint mypy bandit
           pip install -e ".[dev]"
 
       - name: Check code formatting with Black
@@ -90,13 +90,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install safety pip-audit
-
-      - name: Check dependencies with safety
-        run: |
-          safety check --json --output safety-report.json
-          safety check
-        continue-on-error: true
+          pip install pip-audit
 
       - name: Check dependencies with pip-audit
         run: |
@@ -109,9 +103,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dependency-security-reports
-          path: |
-            safety-report.json
-            pip-audit-report.json
+          path: pip-audit-report.json
 
   test:
     name: Test Python ${{ matrix.python-version }} on Ubuntu
@@ -278,7 +270,7 @@ jobs:
     needs: [build-package]
     strategy:
       matrix:
-        python-version: ['3.8', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12']
 
     steps:
       - name: Set up Python ${{ matrix.python-version }}
