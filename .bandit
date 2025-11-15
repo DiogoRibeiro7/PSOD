@@ -1,0 +1,22 @@
+# Bandit configuration for PSOD project
+#
+# Skip B403: import_pickle
+# Rationale: pickle is a standard dependency for ML model serialization.
+# Security warnings are addressed through:
+# - Documentation in docstrings warning users to only load trusted files
+# - Inline nosec comments on pickle.load() calls (B301) where appropriate
+# - Recommendation to use JSON format for untrusted sources
+#
+# Usage: bandit -r src/psod/ -c .bandit
+
+skips: ['B403']
+
+exclude_dirs:
+  - '/tests/'
+  - '/venv/'
+  - '/.venv/'
+  - '/env/'
+  - '/.env/'
+  - '/build/'
+  - '/dist/'
+  - '/.tox/'

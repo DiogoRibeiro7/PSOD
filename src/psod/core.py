@@ -1153,6 +1153,10 @@ class PSOD(BaseEstimator):
         """
         Load a fitted model from disk.
 
+        .. warning::
+            When using 'pickle' or 'joblib' formats, only load files from trusted sources.
+            These formats can execute arbitrary code during deserialization.
+
         Parameters
         ----------
         filepath : str
@@ -1179,7 +1183,7 @@ class PSOD(BaseEstimator):
                 if not os.path.exists(filepath):
                     raise FileNotFoundError(f"Model file not found: {filepath}")
                 with open(filepath, "rb") as f:
-                    model_data = pickle.load(f)
+                    model_data = pickle.load(f)  # nosec B301 - Loading trusted model files only
             elif format == "joblib":
                 if not filepath.endswith(".joblib"):
                     filepath += ".joblib"

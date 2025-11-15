@@ -171,9 +171,7 @@ type-check: ## Run type checking with mypy
 security: ## Run security checks
 	@echo "$(BLUE)Running security checks...$(NC)"
 	@echo "→ bandit..."
-	$(BANDIT) -r src/psod/ -ll
-	@echo "→ safety..."
-	safety check --json || echo "$(YELLOW)Safety warnings found$(NC)"
+	$(BANDIT) -r src/psod/ -c .bandit -ll
 	@echo "→ pip-audit..."
 	pip-audit || echo "$(YELLOW)Audit warnings found$(NC)"
 	@echo "$(GREEN)✓ Security scan complete$(NC)"

@@ -73,10 +73,9 @@ jobs:
 
       - name: Run Bandit scan
         run: |
-          bandit -r src/ -f json -o bandit-report.json || true
-          bandit -r src/ -f txt -o bandit-report.txt || true
-          bandit -r src/ -ll
-        continue-on-error: true
+          bandit -r src/psod/ -c .bandit -f json -o bandit-report.json
+          bandit -r src/psod/ -c .bandit -f txt -o bandit-report.txt
+          bandit -r src/psod/ -c .bandit -ll
 
       - name: Upload Bandit results
         if: always()

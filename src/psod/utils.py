@@ -84,7 +84,8 @@ def save_model(model: Any, filepath: str, format: str = "pickle") -> None:
                                 model_dict[attr] = value
                             elif isinstance(value, np.ndarray):
                                 model_dict[attr] = value.tolist()
-                        except:
+                        except (AttributeError, TypeError, ValueError):
+                            # Skip attributes that cannot be serialized to JSON
                             continue
 
             save_data = {"model": model_dict, "metadata": metadata}
@@ -104,6 +105,11 @@ def load_model(filepath: str, format: str = "pickle") -> Any:
     """
     Load a fitted PSOD model from disk.
 
+    .. warning::
+        When using 'pickle' or 'joblib' formats, only load files from trusted sources.
+        These formats can execute arbitrary code during deserialization.
+        For untrusted sources, use the 'json' format instead.
+
     Parameters
     ----------
     filepath : str
@@ -121,10 +127,10 @@ def load_model(filepath: str, format: str = "pickle") -> Any:
             # Try compressed file first, then uncompressed
             if os.path.exists(f"{filepath}.gz"):
                 with gzip.open(f"{filepath}.gz", "rb") as f:
-                    data = pickle.load(f)
+                    data = pickle.load(f)  # nosec B301 - Loading trusted model files only
             else:
                 with open(filepath, "rb") as f:
-                    data = pickle.load(f)
+                    data = pickle.load(f)  # nosec B301 - Loading trusted model files only
 
         elif format.lower() == "joblib":
             if os.path.exists(f"{filepath}.joblib"):
