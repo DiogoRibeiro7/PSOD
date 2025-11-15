@@ -771,7 +771,8 @@ class TestPSODIntegration:
 
         # 5. Save model
         psod.save_model(str(tmp_model_path))
-        assert tmp_model_path.exists()
+        # save_model adds .pkl extension
+        assert tmp_model_path.with_suffix('.pkl').exists()
 
         # 6. Load model
         loaded_psod = PSOD.load_model(str(tmp_model_path))

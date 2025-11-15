@@ -233,7 +233,7 @@ class TestPlotFeatureContributions:
         """Test with invalid sample index."""
         with pytest.raises((IndexError, ValueError)):
             viz.plot_feature_contributions(
-                model=fitted_psod_model, X=sample_numeric_data, sample_idx=10000  # Out of bounds
+                model=fitted_psod_model, sample_idx=10000  # Out of bounds
             )
 
 

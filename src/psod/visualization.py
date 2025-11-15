@@ -18,7 +18,7 @@ import warnings
 
 def plot_outlier_scores(
     scores: Union[pd.Series, np.ndarray],
-    threshold: Optional[float] = None,
+    threshold: Optional[Union[float, Tuple[float, float]]] = None,
     bins: int = 50,
     title: str = "Outlier Scores Distribution",
     figsize: Tuple[int, int] = (12, 8),
@@ -30,8 +30,8 @@ def plot_outlier_scores(
     ----------
     scores : Union[pd.Series, np.ndarray]
         Outlier scores to plot.
-    threshold : float, optional
-        Threshold line to mark outliers.
+    threshold : float or Tuple[float, float], optional
+        Threshold line(s) to mark outliers. Can be a single value or tuple of (low, high).
     bins : int, default=50
         Number of bins for histogram.
     title : str, default="Outlier Scores Distribution"
@@ -63,24 +63,49 @@ def plot_outlier_scores(
     )
 
     if threshold is not None:
-        # Color outlier bars differently
-        for i, (patch, left, right) in enumerate(zip(patches, bins_edges[:-1], bins_edges[1:])):
-            if right > threshold:
-                patch.set_facecolor("red")
-                patch.set_alpha(0.8)
+        # Handle both single threshold and tuple of thresholds
+        if isinstance(threshold, tuple):
+            low_threshold, high_threshold = threshold
+            # Color outlier bars differently
+            for i, (patch, left, right) in enumerate(zip(patches, bins_edges[:-1], bins_edges[1:])):
+                if right < low_threshold or left > high_threshold:
+                    patch.set_facecolor("red")
+                    patch.set_alpha(0.8)
 
-        ax1.axvline(
-            threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold: {threshold:.3f}"
-        )
-        outlier_pct = np.sum(scores_array > threshold) / len(scores_array) * 100
-        ax1.text(
-            0.02,
-            0.98,
-            f"Outliers: {outlier_pct:.1f}%",
-            transform=ax1.transAxes,
-            verticalalignment="top",
-            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
-        )
+            ax1.axvline(
+                low_threshold, color="red", linestyle="--", linewidth=2, label=f"Low: {low_threshold:.3f}"
+            )
+            ax1.axvline(
+                high_threshold, color="red", linestyle="--", linewidth=2, label=f"High: {high_threshold:.3f}"
+            )
+            outlier_pct = np.sum((scores_array < low_threshold) | (scores_array > high_threshold)) / len(scores_array) * 100
+            ax1.text(
+                0.02,
+                0.98,
+                f"Outliers: {outlier_pct:.1f}%",
+                transform=ax1.transAxes,
+                verticalalignment="top",
+                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+            )
+        else:
+            # Single threshold
+            for i, (patch, left, right) in enumerate(zip(patches, bins_edges[:-1], bins_edges[1:])):
+                if right > threshold:
+                    patch.set_facecolor("red")
+                    patch.set_alpha(0.8)
+
+            ax1.axvline(
+                threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold: {threshold:.3f}"
+            )
+            outlier_pct = np.sum(scores_array > threshold) / len(scores_array) * 100
+            ax1.text(
+                0.02,
+                0.98,
+                f"Outliers: {outlier_pct:.1f}%",
+                transform=ax1.transAxes,
+                verticalalignment="top",
+                bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+            )
 
     ax1.set_xlabel("Outlier Score")
     ax1.set_ylabel("Frequency")
@@ -106,9 +131,18 @@ def plot_outlier_scores(
     bp["medians"][0].set_linewidth(2)
 
     if threshold is not None:
-        ax2.axhline(
-            threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold: {threshold:.3f}"
-        )
+        if isinstance(threshold, tuple):
+            low_threshold, high_threshold = threshold
+            ax2.axhline(
+                low_threshold, color="red", linestyle="--", linewidth=2, label=f"Low: {low_threshold:.3f}"
+            )
+            ax2.axhline(
+                high_threshold, color="red", linestyle="--", linewidth=2, label=f"High: {high_threshold:.3f}"
+            )
+        else:
+            ax2.axhline(
+                threshold, color="red", linestyle="--", linewidth=2, label=f"Threshold: {threshold:.3f}"
+            )
         ax2.legend()
 
     ax2.set_ylabel("Outlier Score")
@@ -207,6 +241,12 @@ def plot_feature_contributions(model, sample_idx: int, top_k: int = 10) -> plt.F
     plt.Figure
         Matplotlib figure object.
     """
+    # Validate sample_idx
+    if hasattr(model, 'scores_') and model.scores_ is not None:
+        n_samples = len(model.scores_)
+        if sample_idx < 0 or sample_idx >= n_samples:
+            raise IndexError(f"sample_idx {sample_idx} is out of bounds for model with {n_samples} samples")
+
     # Extract feature-wise prediction errors
     if not hasattr(model, "feature_names_"):
         feature_names = [f"Feature_{i}" for i in range(model.n_features_)]

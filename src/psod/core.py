@@ -289,6 +289,7 @@ class PSOD(BaseEstimator):
             "cat_encode_on_sample": self.cat_encode_on_sample,
             "flag_outlier_on": self.flag_outlier_on,
             "base_learner": self.base_learner,
+            "learner_kwargs": self.learner_kwargs,
             "cat_encoder": self.cat_encoder,
             "contamination": self.contamination,
             "min_samples": self.min_samples,
