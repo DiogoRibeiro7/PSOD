@@ -47,7 +47,7 @@ jobs:
 
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: benchmark-results
           path: benchmarks/benchmark-results.json
@@ -205,7 +205,7 @@ jobs:
 
       - name: Upload comparison results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: performance-comparison
           path: |
@@ -248,7 +248,7 @@ jobs:
 
       - name: Upload memory profile
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: memory-profile
           path: memory-profile.txt
@@ -315,7 +315,7 @@ jobs:
           EOF
 
       - name: Upload scalability results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: scalability-${{ matrix.dataset-size }}
           path: scalability-${{ matrix.dataset-size }}.json
@@ -442,7 +442,7 @@ jobs:
 
       - name: Upload performance dashboard
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: performance-dashboard
           path: performance-dashboard.png
