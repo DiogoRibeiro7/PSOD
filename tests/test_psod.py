@@ -3,6 +3,7 @@ Comprehensive unit tests for PSOD outlier detection core module.
 Tests all core functionality, edge cases, and sklearn compatibility.
 """
 
+import logging
 import pickle
 import sys
 from pathlib import Path
@@ -106,6 +107,18 @@ class TestPSODInitialization:
         with pytest.raises(ValueError):
             PSOD(missing_value_strategy="invalid_strategy")
 
+    def test_invalid_transform_algorithm(self):
+        """Test invalid transform_algorithm raises ValueError."""
+        with pytest.raises(ValueError, match="transform_algorithm must be one of"):
+            PSOD(transform_algorithm="invalid_transform")
+
+    def test_init_logs_parameters(self, caplog):
+        """Test that initialization logs parameters."""
+        with caplog.at_level(logging.INFO):
+            PSOD()
+
+        assert any("Initialized PSOD with parameters" in rec.message for rec in caplog.records)
+
 
 # ============================================================================
 # CORE FUNCTIONALITY TESTS
@@ -198,6 +211,21 @@ class TestPSODFitPredict:
 
         assert len(scores) == len(single_column_data)
 
+    def test_fit_predict_time_series_data(self, time_series_data):
+        """Test fit_predict with time series data (drop timestamp)."""
+        psod = PSOD(random_seed=42)
+        numeric_data = time_series_data.drop(columns=["timestamp"])
+        scores = psod.fit_predict(numeric_data)
+
+        assert len(scores) == len(numeric_data)
+
+    def test_fit_predict_high_dimensional_data(self, high_dimensional_data):
+        """Test fit_predict with high-dimensional data."""
+        psod = PSOD(random_seed=42)
+        scores = psod.fit_predict(high_dimensional_data)
+
+        assert len(scores) == len(high_dimensional_data)
+
 
 @pytest.mark.unit
 class TestPSODPredict:
@@ -244,6 +272,61 @@ class TestPSODPredict:
 
         # Should be very similar (might have small differences)
         assert np.corrcoef(train_scores, predict_scores)[0, 1] > 0.95
+
+    def test_predict_missing_feature_raises(self, sample_numeric_data):
+        """Test predict raises when required feature is missing."""
+        psod = PSOD(random_seed=42)
+        psod.fit_predict(sample_numeric_data)
+
+        test_data = sample_numeric_data.drop(columns=[sample_numeric_data.columns[0]])
+
+        with pytest.raises(ValueError, match="Features missing from input"):
+            psod.predict(test_data)
+
+    def test_predict_extra_feature_allows(self, sample_numeric_data):
+        """Test predict allows extra features but uses trained ones."""
+        psod = PSOD(random_seed=42)
+        psod.fit_predict(sample_numeric_data)
+
+        test_data = sample_numeric_data.copy()
+        test_data["extra_feature"] = np.random.randn(len(test_data))
+
+        scores = psod.predict(test_data)
+        assert len(scores) == len(test_data)
+
+    def test_predict_ignores_non_numeric_columns(self, sample_numeric_data):
+        """Test non-numeric columns are ignored when not in cat_columns."""
+        data = sample_numeric_data.copy()
+        data["timestamp"] = pd.date_range("2020-01-01", periods=len(data), freq="D")
+
+        psod = PSOD(random_seed=42)
+        psod.fit_predict(data)
+
+        # Prediction should succeed even if timestamp is dropped
+        scores = psod.predict(sample_numeric_data)
+        assert len(scores) == len(sample_numeric_data)
+
+    def test_predict_requires_datetime_when_converted(self, sample_numeric_data):
+        """Test datetime columns become required when auto-converted."""
+        data = sample_numeric_data.copy()
+        data["timestamp"] = pd.date_range("2020-01-01", periods=len(data), freq="D")
+
+        psod = PSOD(random_seed=42, auto_convert_datetime=True)
+        psod.fit_predict(data)
+
+        with pytest.raises(ValueError, match="Features missing from input"):
+            psod.predict(sample_numeric_data)
+
+    def test_predict_ignores_datetime_when_disabled(self, sample_numeric_data):
+        """Test datetime columns are ignored when auto_convert_datetime is False."""
+        data = sample_numeric_data.copy()
+        data["timestamp"] = pd.date_range("2020-01-01", periods=len(data), freq="D")
+
+        psod = PSOD(random_seed=42, auto_convert_datetime=False)
+        psod.fit_predict(data)
+
+        scores = psod.predict(sample_numeric_data)
+        assert len(scores) == len(sample_numeric_data)
 
 
 @pytest.mark.unit
@@ -507,6 +590,45 @@ class TestPSODMissingValues:
         except (ValueError, NotImplementedError):
             pytest.skip("Drop strategy not implemented")
 
+    def test_missing_values_inf_are_imputed_mean(self):
+        """Test that inf values are treated as missing and imputed."""
+        data = pd.DataFrame(
+            {
+                "A": [1.0, 2.0, np.inf, 4.0, 5.0],
+                "B": [1.0, 2.0, 3.0, 4.0, 5.0],
+            }
+        )
+        psod = PSOD(missing_value_strategy="mean", random_seed=42)
+        scores = psod.fit_predict(data)
+
+        assert len(scores) == len(data)
+        assert all(np.isfinite(scores))
+
+    def test_missing_values_imputer_persists(self, missing_value_data):
+        """Test that imputer fitted during training is used in prediction."""
+        psod = PSOD(missing_value_strategy="mean", random_seed=42)
+        psod.fit_predict(missing_value_data)
+
+        assert psod.imputer_ is not None
+
+        # Introduce missing values in new data and ensure prediction works
+        test_data = missing_value_data.copy()
+        test_data.iloc[0, 0] = np.nan
+        scores = psod.predict(test_data)
+
+        assert len(scores) == len(test_data)
+
+    def test_predict_inf_raises_without_imputation(self, sample_numeric_data):
+        """Test predict raises on inf when missing_value_strategy=None."""
+        psod = PSOD(missing_value_strategy=None, random_seed=42)
+        psod.fit_predict(sample_numeric_data)
+
+        test_data = sample_numeric_data.copy()
+        test_data.iloc[0, 0] = np.inf
+
+        with pytest.raises(ValueError, match="infinite values"):
+            psod.predict(test_data)
+
 
 # ============================================================================
 # TRANSFORMATION ALGORITHM TESTS
@@ -676,6 +798,9 @@ class TestPSODEdgeCases:
         with pytest.raises((ValueError, IndexError)):
             psod.fit_predict(empty_df)
 
+        # Model should remain unfitted after failed fit
+        assert not psod._is_fitted
+
     def test_single_sample(self):
         """Test with single sample."""
         single_sample = pd.DataFrame({"A": [1.0], "B": [2.0]})
@@ -708,11 +833,19 @@ class TestPSODEdgeCases:
         data_with_inf = pd.DataFrame({"A": [1, 2, 3, np.inf, 5], "B": [1, 2, 3, 4, 5]})
         psod = PSOD()
 
-        # Should handle inf values
-        try:
-            scores = psod.fit_predict(data_with_inf)
-        except (ValueError, RuntimeError):
-            pass  # Expected
+        scores = psod.fit_predict(data_with_inf)
+        assert len(scores) == len(data_with_inf)
+
+    def test_duplicate_columns(self):
+        """Test with duplicate column names."""
+        data = pd.DataFrame(
+            np.random.randn(10, 2),
+            columns=["A", "A"],
+        )
+        psod = PSOD()
+
+        with pytest.raises(ValueError, match="duplicate column names"):
+            psod.fit_predict(data)
 
 
 # ============================================================================

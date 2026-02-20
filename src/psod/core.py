@@ -75,6 +75,8 @@ class PSOD(BaseEstimator):
         - "knn": Use K-Nearest Neighbors imputation
         - "drop": Drop rows with missing values
         - None: Do not handle missing values
+    auto_convert_datetime : bool, default=True
+        If True, automatically convert datetime columns to numeric (int64 nanoseconds).
 
     Attributes
     ----------
@@ -107,6 +109,7 @@ class PSOD(BaseEstimator):
         contamination: float = 0.1,
         min_samples: int = 10,
         missing_value_strategy: Union[str, None] = "mean",
+        auto_convert_datetime: bool = True,
     ):
         self.cat_columns = cat_columns
         self.cat_encoders: Dict[str, BaseNEncoder] = {}
@@ -137,6 +140,7 @@ class PSOD(BaseEstimator):
         self.contamination = contamination
         self.min_samples = min_samples
         self.missing_value_strategy = missing_value_strategy
+        self.auto_convert_datetime = auto_convert_datetime
 
         # Add feature_importances_ attribute
         self.feature_importances_: Optional[pd.DataFrame] = None
@@ -164,7 +168,8 @@ class PSOD(BaseEstimator):
         logger.info(
             f"Initialized PSOD with parameters: contamination={contamination}, "
             f"transform_algorithm={transform_algorithm}, base_learner={base_learner.__name__}, "
-            f"missing_value_strategy={missing_value_strategy}"
+            f"missing_value_strategy={missing_value_strategy}, "
+            f"auto_convert_datetime={auto_convert_datetime}"
         )
 
     def _validate_params(self):
@@ -216,7 +221,45 @@ class PSOD(BaseEstimator):
         valid_missing_strategies = ["mean", "median", "mode", "knn", "drop", None]
         if self.missing_value_strategy not in valid_missing_strategies:
             raise ValueError(f"missing_value_strategy must be one of {valid_missing_strategies}.")
+        if not isinstance(self.auto_convert_datetime, bool):
+            raise ValueError("auto_convert_datetime must be a boolean.")
 
+    def _reset_fit_state(self) -> None:
+        """Reset all attributes that are set during fitting."""
+        self._is_fitted = False
+        self.scores = None
+        self.outlier_classes = None
+        self.feature_importances_ = None
+        self.prediction_errors_ = None
+        self.feature_names_ = None
+        self.n_features_in_ = None
+        self.pred_distribution_stats = {}
+        self.chosen_columns = {}
+        self.regressors = {}
+        self.cat_encoders = {}
+        self.cols_with_var = []
+        self.imputer_ = None
+        self.missing_value_indices_ = None
+        self._min_cols_chosen_int = None
+        self._max_cols_chosen_int = None
+        self.numeric_encoders = None
+        logger.debug("Reset fit state before training.")
+
+    def _convert_datetime_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Convert datetime columns to numeric if enabled."""
+        if not self.auto_convert_datetime:
+            return df
+
+        datetime_cols = df.select_dtypes(include=["datetime64[ns]", "datetime64[ns, UTC]"]).columns
+        if len(datetime_cols) == 0:
+            return df
+
+        df_converted = df.copy()
+        for col in datetime_cols:
+            df_converted[col] = df_converted[col].view("int64")
+
+        logger.info(f"Converted datetime columns to numeric: {list(datetime_cols)}")
+        return df_converted
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         """
         Convert input to DataFrame if necessary (sklearn compatibility).
@@ -263,6 +306,7 @@ class PSOD(BaseEstimator):
         - base_learner: {self.base_learner.__name__}
         - cat_encoder: {self.cat_encoder.__name__}
         - contamination: {self.contamination}
+        - auto_convert_datetime: {self.auto_convert_datetime}
         - is_fitted: {self._is_fitted}
         """
 
@@ -295,6 +339,7 @@ class PSOD(BaseEstimator):
             "contamination": self.contamination,
             "min_samples": self.min_samples,
             "missing_value_strategy": self.missing_value_strategy,
+            "auto_convert_datetime": self.auto_convert_datetime,
         }
 
     def set_params(self, **params):
@@ -554,6 +599,11 @@ class PSOD(BaseEstimator):
         if df.empty:
             raise ValueError("Input DataFrame is empty")
 
+        # Check for duplicate column names
+        if df.columns.duplicated().any():
+            dupes = df.columns[df.columns.duplicated()].unique().tolist()
+            raise ValueError(f"Input DataFrame has duplicate column names: {dupes}")
+
         # Check for minimum number of samples (only during training)
         if is_training and len(df) < self.min_samples:
             raise ValueError(
@@ -561,13 +611,34 @@ class PSOD(BaseEstimator):
                 f"but minimum required is {self.min_samples}"
             )
 
+        # Check for infinite values in numeric columns (during prediction)
+        numeric_df = df.select_dtypes(include=[np.number])
+        if (not is_training) and (not numeric_df.empty) and np.isinf(numeric_df.to_numpy()).any():
+            raise ValueError(
+                "Input DataFrame contains infinite values. Replace or drop them before prediction."
+            )
+
         # Check for missing values
         if df.isnull().any().any():
             logger.warning("Missing values detected. Consider imputation before fitting.")
 
         # Check data types
-        if not df.select_dtypes(include=[np.number]).shape[1]:
+        if numeric_df.empty:
             raise ValueError("No numeric columns found in DataFrame")
+
+        # Warn on non-numeric columns that will be ignored (unless specified as categorical)
+        if self.cat_columns:
+            cat_cols_set = set(self.cat_columns)
+        else:
+            cat_cols_set = set()
+        non_numeric_cols = [
+            col for col in df.columns if col not in numeric_df.columns and col not in cat_cols_set
+        ]
+        if non_numeric_cols:
+            logger.warning(
+                "Non-numeric columns will be ignored unless specified in cat_columns: "
+                f"{non_numeric_cols}"
+            )
 
         # Validate categorical columns exist
         if self.cat_columns:
@@ -583,7 +654,9 @@ class PSOD(BaseEstimator):
 
         logger.debug(f"Input validation passed. DataFrame shape: {df.shape}")
 
-    def _handle_missing_values(self, df: pd.DataFrame, is_training: bool = True) -> pd.DataFrame:
+    def _handle_missing_values(
+        self, df: pd.DataFrame, is_training: bool = True
+    ) -> pd.DataFrame:
         """
         Handle missing values according to the specified strategy.
 
@@ -601,6 +674,12 @@ class PSOD(BaseEstimator):
         """
         if self.missing_value_strategy is None:
             return df
+
+        # Treat infinite values as missing (numeric columns only)
+        numeric_cols_all = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols_all) > 0:
+            df = df.copy()
+            df[numeric_cols_all] = df[numeric_cols_all].replace([np.inf, -np.inf], np.nan)
 
         # Check if there are any missing values
         if not df.isnull().any().any():
@@ -804,12 +883,16 @@ class PSOD(BaseEstimator):
         """
         logger.info("Starting PSOD fit_predict")
 
+        # Ensure no stale state from previous fits
+        self._reset_fit_state()
+
         # Reset random generator for reproducibility
         self.random_generator = np.random.default_rng(self.random_seed)
 
         # Convert to DataFrame if necessary
         input_was_array = isinstance(df, np.ndarray)
         df = self._to_dataframe(df)
+        df = self._convert_datetime_columns(df)
 
         # Add input validation
         self._validate_input(df)
@@ -817,25 +900,27 @@ class PSOD(BaseEstimator):
         # Handle missing values before fitting
         df = self._handle_missing_values(df, is_training=True)
 
-        # Store original feature names and count
-        self.feature_names_ = list(df.columns)
-        self.n_features_in_ = len(df.columns)
-
         if isinstance(self.cat_columns, list):
-            self.cols_with_var = self.remove_zero_variance(df.drop(self.cat_columns, axis=1))
+            numeric_df = df.drop(self.cat_columns, axis=1).select_dtypes(include=[np.number])
+            self.cols_with_var = self.remove_zero_variance(numeric_df)
             df = df.loc[:, self.cols_with_var + self.cat_columns]
         else:
-            self.cols_with_var = self.remove_zero_variance(df)
+            numeric_df = df.select_dtypes(include=[np.number])
+            self.cols_with_var = self.remove_zero_variance(numeric_df)
             df = df.loc[:, self.cols_with_var]
+
+        # Store feature names and count actually used for fitting
+        self.feature_names_ = list(df.columns)
+        self.n_features_in_ = len(df.columns)
 
         df_scores = df.copy()
         self.get_range_cols(df)
 
         if isinstance(self.cat_columns, list):
-            loop_cols = df.drop(self.cat_columns, axis=1).columns
+            loop_cols = df.drop(self.cat_columns, axis=1).select_dtypes(include=[np.number]).columns
             df[loop_cols] = self.fit_transform_numeric_data(df[loop_cols])
         else:
-            loop_cols = df.columns
+            loop_cols = df.select_dtypes(include=[np.number]).columns
             df = self.fit_transform_numeric_data(df)
 
         # Initialize prediction errors storage
@@ -1019,6 +1104,7 @@ class PSOD(BaseEstimator):
         # Convert to DataFrame if necessary
         input_was_array = isinstance(df, np.ndarray)
         df = self._to_dataframe(df)
+        df = self._convert_datetime_columns(df)
         logger.info("Starting PSOD predict")
 
         # Check if model is fitted
@@ -1040,9 +1126,9 @@ class PSOD(BaseEstimator):
         df_scores = df.copy()
 
         loop_cols = (
-            df.drop(columns=self.cat_columns).columns
+            df.drop(columns=self.cat_columns).select_dtypes(include=[np.number]).columns
             if isinstance(self.cat_columns, list)
-            else df.columns
+            else df.select_dtypes(include=[np.number]).columns
         )
         df[loop_cols] = self.transform_numeric_data(df[loop_cols])
 
