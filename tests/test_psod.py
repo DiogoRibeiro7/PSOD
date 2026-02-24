@@ -119,6 +119,43 @@ class TestPSODInitialization:
 
         assert any("Initialized PSOD with parameters" in rec.message for rec in caplog.records)
 
+    def test_invalid_cat_columns_type(self):
+        """Test invalid cat_columns type."""
+        with pytest.raises(ValueError, match="cat_columns must be a list"):
+            PSOD(cat_columns="not-a-list")
+
+    def test_invalid_cat_columns_empty(self):
+        """Test empty cat_columns list."""
+        with pytest.raises(ValueError, match="cat_columns must be a non-empty list"):
+            PSOD(cat_columns=[])
+
+    def test_invalid_cat_columns_non_string(self):
+        """Test cat_columns with non-string entries."""
+        with pytest.raises(ValueError, match="cat_columns must contain only strings"):
+            PSOD(cat_columns=["A", 1])
+
+    def test_invalid_cat_columns_duplicates(self):
+        """Test cat_columns with duplicate entries."""
+        with pytest.raises(ValueError, match="cat_columns must not contain duplicate names"):
+            PSOD(cat_columns=["A", "A"])
+
+    def test_invalid_n_jobs_zero(self):
+        """Test n_jobs cannot be zero."""
+        with pytest.raises(ValueError, match="n_jobs cannot be 0"):
+            PSOD(n_jobs=0)
+
+
+@pytest.mark.unit
+class TestPSODCategoricalValidation:
+    """Tests for categorical column validation."""
+
+    def test_numeric_cat_columns_rejected(self, sample_numeric_data):
+        """Test that numeric columns cannot be declared categorical."""
+        psod = PSOD(cat_columns=["feature_1"], random_seed=42)
+
+        with pytest.raises(ValueError, match="Categorical columns must be non-numeric"):
+            psod.fit_predict(sample_numeric_data)
+
 
 # ============================================================================
 # CORE FUNCTIONALITY TESTS
@@ -226,6 +263,17 @@ class TestPSODFitPredict:
 
         assert len(scores) == len(high_dimensional_data)
 
+    def test_fit_predict_logs(self, sample_numeric_data, caplog):
+        """Test that fit_predict logs start and completion."""
+        psod = PSOD(random_seed=42)
+
+        with caplog.at_level(logging.INFO):
+            psod.fit_predict(sample_numeric_data)
+
+        messages = [rec.message for rec in caplog.records]
+        assert any("Starting PSOD fit_predict" in msg for msg in messages)
+        assert any("Fitting completed" in msg for msg in messages)
+
 
 @pytest.mark.unit
 class TestPSODPredict:
@@ -305,6 +353,18 @@ class TestPSODPredict:
         # Prediction should succeed even if timestamp is dropped
         scores = psod.predict(sample_numeric_data)
         assert len(scores) == len(sample_numeric_data)
+
+    def test_predict_logs(self, sample_numeric_data, caplog):
+        """Test that predict logs start and completion."""
+        psod = PSOD(random_seed=42)
+        psod.fit_predict(sample_numeric_data)
+
+        with caplog.at_level(logging.INFO):
+            psod.predict(sample_numeric_data)
+
+        messages = [rec.message for rec in caplog.records]
+        assert any("Starting PSOD predict" in msg for msg in messages)
+        assert any("Prediction completed" in msg for msg in messages)
 
     def test_predict_requires_datetime_when_converted(self, sample_numeric_data):
         """Test datetime columns become required when auto-converted."""
@@ -455,6 +515,19 @@ class TestPSODPersistence:
         # Test functionality
         scores = loaded_psod.predict(sample_numeric_data)
         assert len(scores) == len(sample_numeric_data)
+
+    def test_save_load_logs(self, sample_numeric_data, tmp_model_path, caplog):
+        """Test that save/load log their operations."""
+        psod = PSOD(random_seed=42)
+        psod.fit_predict(sample_numeric_data)
+
+        with caplog.at_level(logging.INFO):
+            psod.save_model(str(tmp_model_path))
+            PSOD.load_model(str(tmp_model_path))
+
+        messages = [rec.message for rec in caplog.records]
+        assert any("Saving PSOD model" in msg for msg in messages)
+        assert any("Loading PSOD model" in msg for msg in messages)
 
 
 # ============================================================================
@@ -827,6 +900,33 @@ class TestPSODEdgeCases:
         scores = psod.fit_predict(correlated_features_data)
 
         assert len(scores) == len(correlated_features_data)
+
+    def test_correlation_threshold_effect(self):
+        """Test correlation threshold filters chosen columns."""
+        np.random.seed(42)
+        n = 200
+        feature_1 = np.random.randn(n)
+        feature_2 = feature_1 * 2 + np.random.randn(n) * 0.001  # Highly correlated
+        feature_3 = np.random.randn(n)  # Uncorrelated
+
+        data = pd.DataFrame(
+            {
+                "feature_1": feature_1,
+                "feature_2": feature_2,
+                "feature_3": feature_3,
+            }
+        )
+
+        psod = PSOD(
+            correlation_threshold=0.9,
+            min_cols_chosen=1.0,
+            max_cols_chosen=1.0,
+            random_seed=42,
+        )
+        psod.fit_predict(data)
+
+        chosen = psod.chosen_columns.get("feature_1", [])
+        assert set(chosen) == {"feature_2"}
 
     def test_inf_values(self):
         """Test with infinite values."""

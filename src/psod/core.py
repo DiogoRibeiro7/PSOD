@@ -188,6 +188,8 @@ class PSOD(BaseEstimator):
             raise ValueError("contamination must be between 0 and 1.")
         if self.min_samples < 1:
             raise ValueError("min_samples must be at least 1.")
+        if self.n_jobs == 0:
+            raise ValueError("n_jobs cannot be 0. Use -1 for all cores or a positive integer.")
 
         if self.sample_frac > 1.0:
             warnings.warn(
@@ -223,6 +225,16 @@ class PSOD(BaseEstimator):
             raise ValueError(f"missing_value_strategy must be one of {valid_missing_strategies}.")
         if not isinstance(self.auto_convert_datetime, bool):
             raise ValueError("auto_convert_datetime must be a boolean.")
+
+        if self.cat_columns is not None:
+            if not isinstance(self.cat_columns, list):
+                raise ValueError("cat_columns must be a list of column names or None.")
+            if not self.cat_columns:
+                raise ValueError("cat_columns must be a non-empty list or None.")
+            if not all(isinstance(col, str) for col in self.cat_columns):
+                raise ValueError("cat_columns must contain only strings.")
+            if len(set(self.cat_columns)) != len(self.cat_columns):
+                raise ValueError("cat_columns must not contain duplicate names.")
 
     def _reset_fit_state(self) -> None:
         """Reset all attributes that are set during fitting."""
@@ -640,11 +652,19 @@ class PSOD(BaseEstimator):
                 f"{non_numeric_cols}"
             )
 
-        # Validate categorical columns exist
+        # Validate categorical columns exist and are non-numeric
         if self.cat_columns:
             missing_cat_cols = set(self.cat_columns) - set(df.columns)
             if missing_cat_cols:
                 raise ValueError(f"Categorical columns not found in DataFrame: {missing_cat_cols}")
+            numeric_cat_cols = [
+                col for col in self.cat_columns if col in numeric_df.columns
+            ]
+            if numeric_cat_cols:
+                raise ValueError(
+                    "Categorical columns must be non-numeric. "
+                    f"Found numeric categorical columns: {numeric_cat_cols}"
+                )
 
         # Check during prediction that features match training
         if self._is_fitted and self.feature_names_:
@@ -899,6 +919,7 @@ class PSOD(BaseEstimator):
 
         # Handle missing values before fitting
         df = self._handle_missing_values(df, is_training=True)
+        logger.debug(f"Training data shape after preprocessing: {df.shape}")
 
         if isinstance(self.cat_columns, list):
             numeric_df = df.drop(self.cat_columns, axis=1).select_dtypes(include=[np.number])
@@ -912,6 +933,9 @@ class PSOD(BaseEstimator):
         # Store feature names and count actually used for fitting
         self.feature_names_ = list(df.columns)
         self.n_features_in_ = len(df.columns)
+        logger.debug(
+            f"Using {self.n_features_in_} features for training: {self.feature_names_}"
+        )
 
         df_scores = df.copy()
         self.get_range_cols(df)
@@ -1056,15 +1080,30 @@ class PSOD(BaseEstimator):
             self.prediction_errors_[col] = prediction_error.values
 
         df_scores = self.drop_cat_columns(df_scores)
+        logger.debug(
+            f"Calculated anomaly scores. Mean={df_scores['anomaly'].mean():.6f}, "
+            f"Std={df_scores['anomaly'].std():.6f}"
+        )
 
-        # Mark as fitted before calculating feature importances
+        # Store score distribution stats for thresholding
+        self.pred_distribution_stats = {
+            "mean_score": df_scores["anomaly"].mean(),
+            "std_score": df_scores["anomaly"].std(),
+        }
+
+        # Mark as fitted before calculating feature importances and thresholds
         self._is_fitted = True
+
+        # Adjust threshold based on contamination, if specified
+        if self.contamination is not None:
+            self.set_contamination_threshold(self.contamination)
+            logger.debug(f"Adjusted stdevs_to_outlier to {self.stdevs_to_outlier:.6f}")
 
         # Calculate and store feature importances
         self._calculate_feature_importances()
 
         # Log fitting completion
-        outlier_count = sum(self.make_outlier_classes(df_scores, use_trained_stats=False) == 1)
+        outlier_count = sum(self.make_outlier_classes(df_scores, use_trained_stats=True) == 1)
         logger.info(
             f"Fitting completed. Detected {outlier_count} outliers out of {len(df)} samples."
         )
@@ -1118,6 +1157,7 @@ class PSOD(BaseEstimator):
 
         # Handle missing values using fitted imputer
         df = self._handle_missing_values(df, is_training=False)
+        logger.debug(f"Prediction data shape after preprocessing: {df.shape}")
 
         df = df.loc[
             :,
@@ -1200,6 +1240,7 @@ class PSOD(BaseEstimator):
         format : str, default='pickle'
             Format to save ('pickle' or 'joblib').
         """
+        logger.info(f"Saving PSOD model to {filepath} (format={format})")
         if not self._is_fitted:
             raise ValueError("Model must be fitted before saving.")
 
@@ -1262,6 +1303,7 @@ class PSOD(BaseEstimator):
         ValueError
             If the file format is invalid or the model is corrupted.
         """
+        logger.info(f"Loading PSOD model from {filepath} (format={format})")
         try:
             if format == "pickle":
                 if not filepath.endswith(".pkl"):
@@ -1443,6 +1485,12 @@ class PSOD(BaseEstimator):
 
         if self.scores is None:
             raise ValueError("No scores available. Fit the model first.")
+
+        if self.pred_distribution_stats.get("std_score", 0) == 0:
+            logger.warning(
+                "Score standard deviation is zero; contamination-based threshold adjustment skipped."
+            )
+            return
 
         # Calculate threshold based on contamination
         if self.flag_outlier_on == "high end":
