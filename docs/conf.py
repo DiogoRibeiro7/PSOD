@@ -83,7 +83,7 @@ html_theme = "pydata_sphinx_theme"
 
 # Theme options
 html_theme_options = {
-    "github_url": "https://github.com/your-username/PSOD",  # TODO: Update
+    "github_url": "https://github.com/diogoribeiro7/PSOD",  # TODO: Update
     "use_edit_page_button": True,
     "show_toc_level": 2,
     "navigation_depth": 4,
@@ -97,7 +97,7 @@ html_theme_options = {
     "icon_links": [
         {
             "name": "GitHub",
-            "url": "https://github.com/your-username/PSOD",  # TODO: Update
+            "url": "https://github.com/diogoribeiro7/PSOD",  # TODO: Update
             "icon": "fab fa-github-square",
         },
         {
@@ -111,7 +111,7 @@ html_theme_options = {
 
 # Edit page configuration
 html_context = {
-    "github_user": "your-username",  # TODO: Update
+    "github_user": "diogoribeiro7",  # TODO: Update
     "github_repo": "PSOD",
     "github_version": "main",
     "doc_path": "docs",
@@ -306,3 +306,4 @@ suppress_warnings = [
 def setup(app):
     """Custom setup function."""
     app.add_css_file("custom.css")
+

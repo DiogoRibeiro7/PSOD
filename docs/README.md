@@ -106,7 +106,7 @@ Documentation is automatically built and deployed:
 
 - **GitHub Actions**: Builds on every push
 - **Read the Docs**: Available at https://psod.readthedocs.io (when configured)
-- **GitHub Pages**: Available at https://your-username.github.io/PSOD/ (when configured)
+- **GitHub Pages**: Available at https://diogoribeiro7.github.io/PSOD/ (when configured)
 
 ## Troubleshooting
 
@@ -147,3 +147,4 @@ make linkcheck
 - [reStructuredText Primer](https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html)
 - [PyData Sphinx Theme](https://pydata-sphinx-theme.readthedocs.io/)
 - [NumPy Docstring Guide](https://numpydoc.readthedocs.io/en/latest/format.html)
+

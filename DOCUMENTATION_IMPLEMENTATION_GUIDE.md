@@ -239,7 +239,7 @@ From source
 
 .. code-block:: bash
 
-   git clone https://github.com/your-username/PSOD.git
+   git clone https://github.com/diogoribeiro7/PSOD.git
    cd PSOD
    pip install -e .
 
@@ -688,3 +688,4 @@ plotly>=5.0.0
 - **Total**: 12-16 hours for complete documentation
 
 The foundation is solid and ready for content creation! 🚀
+

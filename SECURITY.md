@@ -25,7 +25,7 @@ Instead, please report them via one of the following methods:
    - Fill out the form with details about the vulnerability
 
 2. **Email**
-   - Send an email to: diogoribeiro7@gmail.com
+   - Send an email to: dfr@esmad.ipp.pt
    - Include "[SECURITY]" in the subject line
    - Provide detailed information about the vulnerability
 
@@ -140,7 +140,7 @@ PSOD depends on several third-party libraries. We:
 ## Contact
 
 For security-related questions or concerns, contact:
-- Email: diogoribeiro7@gmail.com
+- Email: dfr@esmad.ipp.pt
 - GitHub: @diogoribeiro7
 
 ## Acknowledgments
@@ -152,3 +152,4 @@ We would like to thank the following security researchers and contributors who h
 ---
 
 Thank you for helping keep PSOD and our users safe!
+

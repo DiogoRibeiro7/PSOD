@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 VERSION = "0.1.0"
 
 # TODO: Update author email with actual email
-AUTHOR_EMAIL = "your.email@example.com"
+AUTHOR_EMAIL = "dfr@esmad.ipp.pt"
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -66,3 +66,4 @@ setup(
         # TODO: Add documentation URL once docs are hosted
     },
 )
+

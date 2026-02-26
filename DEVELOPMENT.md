@@ -617,7 +617,7 @@ pytest tests/test_core.py::test_name --pdb
 
 - **Issues**: [GitHub Issues](https://github.com/diogoribeiro7/PSOD/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/diogoribeiro7/PSOD/discussions)
-- **Email**: your.email@example.com
+- **Email**: dfr@esmad.ipp.pt
 
 ## 📄 Additional Resources
 
@@ -630,3 +630,4 @@ pytest tests/test_core.py::test_name --pdb
 ---
 
 **Happy coding! 🎉**
+

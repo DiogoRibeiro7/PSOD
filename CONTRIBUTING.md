@@ -95,7 +95,7 @@ detector.fit(df)  # Raises ValueError
 
 ### Security Issues
 
-**Do NOT** report security vulnerabilities through public issues. Instead, email security concerns to: [your.email@example.com]
+**Do NOT** report security vulnerabilities through public issues. Instead, email security concerns to: [dfr@esmad.ipp.pt]
 
 ## Development Setup
 
@@ -103,7 +103,7 @@ detector.fit(df)  # Raises ValueError
 
 ```bash
 # Fork the repository on GitHub first, then clone your fork
-git clone https://github.com/YOUR-USERNAME/PSOD.git
+git clone https://github.com/diogoribeiro7/PSOD.git
 cd PSOD
 
 # Add upstream remote
@@ -507,7 +507,7 @@ We use [Semantic Versioning](https://semver.org/):
 
 - **General questions**: [GitHub Discussions](https://github.com/diogoribeiro7/PSOD/discussions)
 - **Bug reports**: [GitHub Issues](https://github.com/diogoribeiro7/PSOD/issues)
-- **Security issues**: Email [your.email@example.com]
+- **Security issues**: Email [dfr@esmad.ipp.pt]
 
 ## Recognition
 
@@ -517,3 +517,4 @@ Contributors will be:
 - Thanked in project README
 
 Thank you for contributing to PSOD! 🎉
+

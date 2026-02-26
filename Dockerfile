@@ -5,7 +5,7 @@
 # Build stage
 FROM python:3.11-slim as builder
 
-LABEL maintainer="Diogo Ribeiro <your.email@example.com>"
+LABEL maintainer="Diogo Ribeiro <dfr@esmad.ipp.pt>"
 LABEL description="PSOD - Pseudo-Supervised Outlier Detection"
 
 # Set environment variables
@@ -73,3 +73,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Default command
 CMD ["python"]
+
