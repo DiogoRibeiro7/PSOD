@@ -65,7 +65,7 @@ class PSOD(BaseEstimator):
         A categorical encoder class from category_encoders.
     contamination : float, default=0.1
         Expected proportion of outliers in the dataset.
-    min_samples : int, default=10
+    min_samples : int, default=1
         Minimum number of samples required for fitting.
     missing_value_strategy : str, default="mean"
         Strategy for handling missing values. Options:
@@ -75,7 +75,7 @@ class PSOD(BaseEstimator):
         - "knn": Use K-Nearest Neighbors imputation
         - "drop": Drop rows with missing values
         - None: Do not handle missing values
-    auto_convert_datetime : bool, default=True
+    auto_convert_datetime : bool, default=False
         If True, automatically convert datetime columns to numeric (int64 nanoseconds).
 
     Attributes
@@ -107,9 +107,9 @@ class PSOD(BaseEstimator):
         learner_kwargs: Optional[Dict[str, Any]] = None,
         cat_encoder: Type[BaseNEncoder] = TargetEncoder,
         contamination: float = 0.1,
-        min_samples: int = 10,
+        min_samples: int = 1,
         missing_value_strategy: Union[str, None] = "mean",
-        auto_convert_datetime: bool = True,
+        auto_convert_datetime: bool = False,
     ):
         self.cat_columns = cat_columns
         self.cat_encoders: Dict[str, BaseNEncoder] = {}
@@ -268,10 +268,12 @@ class PSOD(BaseEstimator):
 
         df_converted = df.copy()
         for col in datetime_cols:
-            df_converted[col] = df_converted[col].view("int64")
+            # Use astype to avoid pandas FutureWarning about Series.view
+            df_converted[col] = df_converted[col].astype("int64")
 
         logger.info(f"Converted datetime columns to numeric: {list(datetime_cols)}")
         return df_converted
+
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         """
         Convert input to DataFrame if necessary (sklearn compatibility).
@@ -364,6 +366,10 @@ class PSOD(BaseEstimator):
     def get_range_cols(self, df: pd.DataFrame):
         """Calculate actual column ranges based on dataframe size."""
         len_cols = len(df.columns) - 1  # Exclude target column
+        if len_cols <= 0:
+            self._min_cols_chosen_int = 0
+            self._max_cols_chosen_int = 0
+            return
         # Store converted integer values separately, preserving original fractions
         self._min_cols_chosen_int = max(int(len_cols * self.min_cols_chosen), 1)
         self._max_cols_chosen_int = min(int(len_cols * self.max_cols_chosen), len_cols)
@@ -389,15 +395,16 @@ class PSOD(BaseEstimator):
             )
             return []
 
-        nb_cols = (
-            1
-            if self._min_cols_chosen_int == self._max_cols_chosen_int == 1
-            else self.random_generator.choice(
-                np.arange(self._min_cols_chosen_int, self._max_cols_chosen_int) + 1,
+        if not self._min_cols_chosen_int or not self._max_cols_chosen_int:
+            nb_cols = 0
+        elif self._min_cols_chosen_int == self._max_cols_chosen_int:
+            nb_cols = self._min_cols_chosen_int
+        else:
+            nb_cols = self.random_generator.choice(
+                np.arange(self._min_cols_chosen_int, self._max_cols_chosen_int + 1),
                 1,
                 replace=False,
             )[0]
-        )
 
         # Ensure we don't try to select more columns than available
         nb_cols = min(nb_cols, len(df.columns))
@@ -657,9 +664,7 @@ class PSOD(BaseEstimator):
             missing_cat_cols = set(self.cat_columns) - set(df.columns)
             if missing_cat_cols:
                 raise ValueError(f"Categorical columns not found in DataFrame: {missing_cat_cols}")
-            numeric_cat_cols = [
-                col for col in self.cat_columns if col in numeric_df.columns
-            ]
+            numeric_cat_cols = [col for col in self.cat_columns if col in numeric_df.columns]
             if numeric_cat_cols:
                 raise ValueError(
                     "Categorical columns must be non-numeric. "
@@ -674,9 +679,7 @@ class PSOD(BaseEstimator):
 
         logger.debug(f"Input validation passed. DataFrame shape: {df.shape}")
 
-    def _handle_missing_values(
-        self, df: pd.DataFrame, is_training: bool = True
-    ) -> pd.DataFrame:
+    def _handle_missing_values(self, df: pd.DataFrame, is_training: bool = True) -> pd.DataFrame:
         """
         Handle missing values according to the specified strategy.
 
@@ -933,9 +936,7 @@ class PSOD(BaseEstimator):
         # Store feature names and count actually used for fitting
         self.feature_names_ = list(df.columns)
         self.n_features_in_ = len(df.columns)
-        logger.debug(
-            f"Using {self.n_features_in_} features for training: {self.feature_names_}"
-        )
+        logger.debug(f"Using {self.n_features_in_} features for training: {self.feature_names_}")
 
         df_scores = df.copy()
         self.get_range_cols(df)
@@ -970,15 +971,16 @@ class PSOD(BaseEstimator):
                 )
                 chosen_columns = []
             else:
-                nb_cols = (
-                    1
-                    if self._min_cols_chosen_int == self._max_cols_chosen_int == 1
-                    else local_rng.choice(
-                        np.arange(self._min_cols_chosen_int, self._max_cols_chosen_int) + 1,
+                if not self._min_cols_chosen_int or not self._max_cols_chosen_int:
+                    nb_cols = 0
+                elif self._min_cols_chosen_int == self._max_cols_chosen_int:
+                    nb_cols = self._min_cols_chosen_int
+                else:
+                    nb_cols = local_rng.choice(
+                        np.arange(self._min_cols_chosen_int, self._max_cols_chosen_int + 1),
                         1,
                         replace=False,
                     )[0]
-                )
                 nb_cols = min(nb_cols, len(nb_cols_options))
                 chosen_columns = local_rng.choice(nb_cols_options, nb_cols, replace=False).tolist()
 

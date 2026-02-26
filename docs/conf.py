@@ -64,6 +64,14 @@ exclude_patterns = [
     "**.ipynb_checkpoints",
 ]
 
+# Skip notebooks in CI to avoid hard dependency on pandoc
+_skip_notebooks = os.environ.get("PSOD_DOCS_SKIP_NOTEBOOKS") == "1" or os.environ.get(
+    "GITHUB_ACTIONS"
+) in {"1", "true", "True"} or os.environ.get("CI") in {"1", "true", "True"}
+if _skip_notebooks:
+    extensions = [ext for ext in extensions if ext != "nbsphinx"]
+    exclude_patterns.append("**/*.ipynb")
+
 # The suffix(es) of source filenames
 source_suffix = {
     ".rst": "restructuredtext",
@@ -306,4 +314,3 @@ suppress_warnings = [
 def setup(app):
     """Custom setup function."""
     app.add_css_file("custom.css")
-

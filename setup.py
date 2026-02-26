@@ -66,4 +66,3 @@ setup(
         # TODO: Add documentation URL once docs are hosted
     },
 )
-
