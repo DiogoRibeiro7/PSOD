@@ -69,7 +69,7 @@ _skip_notebooks = os.environ.get("PSOD_DOCS_SKIP_NOTEBOOKS") == "1" or os.enviro
     "GITHUB_ACTIONS"
 ) in {"1", "true", "True"} or os.environ.get("CI") in {"1", "true", "True"}
 if _skip_notebooks:
-    extensions = [ext for ext in extensions if ext != "nbsphinx"]
+    extensions = [ext for ext in extensions if ext not in {"nbsphinx", "sphinx_gallery.gen_gallery"}]
     exclude_patterns.append("**/*.ipynb")
 
 # The suffix(es) of source filenames

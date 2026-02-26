@@ -599,7 +599,8 @@ class PSOD(BaseEstimator):
         List[str]
             List of columns with non-zero variance.
         """
-        var_data = df.var()
+        # Use ddof=0 to avoid warnings for single-sample inputs
+        var_data = df.var(ddof=0)
         return var_data[var_data != 0].index.to_list()
 
     def _validate_input(self, df: pd.DataFrame, is_training: bool = True) -> None:
