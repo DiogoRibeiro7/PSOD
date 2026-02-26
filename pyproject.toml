@@ -12,10 +12,10 @@ description = "Pseudo-Supervised Outlier Detection using regression-based anomal
 readme = "README.md"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "Diogo Ribeiro", email = "your.email@example.com"}
+    {name = "Diogo Ribeiro", email = "dfr@esmad.ipp.pt"}
 ]
 maintainers = [
-    {name = "Diogo Ribeiro", email = "your.email@example.com"}
+    {name = "Diogo Ribeiro", email = "dfr@esmad.ipp.pt"}
 ]
 keywords = [
     "outlier-detection",
