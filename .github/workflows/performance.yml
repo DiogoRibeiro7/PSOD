@@ -340,7 +340,7 @@ jobs:
           pip install matplotlib pandas numpy
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: artifacts/
 
@@ -460,7 +460,7 @@ jobs:
           ref: gh-pages
 
       - name: Download performance dashboard
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: performance-dashboard
           path: performance/
