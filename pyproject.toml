@@ -2,7 +2,7 @@
 # ========================================================================
 
 [build-system]
-requires = ["setuptools>=65.0", "setuptools-scm>=8.0", "wheel"]
+requires = ["setuptools>=65.0", "setuptools-scm>=9.2.2", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
