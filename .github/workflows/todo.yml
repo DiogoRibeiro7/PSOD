@@ -99,7 +99,7 @@ jobs:
 
       # Run Issue Bot
       - name: Run Issue Bot
-        uses: juulsn/todo-issue@v1.1.5
+        uses: juulsn/todo-issue@v2.0.0
         env:
           GITHUB_TOKEN: ${{ env.ISSUE_TOKEN }}
         with:
