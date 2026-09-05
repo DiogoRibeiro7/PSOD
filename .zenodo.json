@@ -1,0 +1,50 @@
+{
+  "title": "PSOD: Pseudo-supervised outlier detection for tabular data",
+  "upload_type": "software",
+  "description": "PSOD is a Python package for pseudo-supervised outlier detection on tabular data using feature-wise predictive residuals. For each numerical feature, the method predicts that feature from a subset of the remaining columns and uses the residuals as anomaly evidence. Feature-wise residuals are then aggregated into row-level anomaly scores. This repository is an extension and reimplementation of the earlier PSOD package by Thomas Mei\u00dfner and is currently being refactored and revalidated before release.",
+  "creators": [
+    {
+      "name": "Ribeiro, Diogo",
+      "orcid": "0009-0001-2022-7072",
+      "affiliation": "Faculty of Media Arts and Design, Technical University of Porto"
+    }
+  ],
+  "contributors": [
+    {
+      "name": "Mei\u00dfner, Thomas",
+      "type": "Researcher"
+    }
+  ],
+  "access_right": "open",
+  "license": "gpl-3.0-only",
+  "language": "eng",
+  "keywords": [
+    "outlier-detection",
+    "anomaly-detection",
+    "conditional-anomaly-detection",
+    "feature-wise-residuals",
+    "machine-learning",
+    "pseudo-supervised",
+    "python",
+    "data-science",
+    "scikit-learn",
+    "tabular-data"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://psod.readthedocs.io",
+      "relation": "isDocumentedBy",
+      "resource_type": "publication-softwaredocumentation"
+    },
+    {
+      "identifier": "https://github.com/ThomasMeissnerDS/PSOD",
+      "relation": "isDerivedFrom",
+      "resource_type": "software"
+    }
+  ],
+  "references": [
+    "Mei\u00dfner, T. PSOD (Pseudo-supervised outlier detection). GitHub repository. https://github.com/ThomasMeissnerDS/PSOD"
+  ],
+  "method": "For each numerical feature X_j, PSOD predicts that feature from a subset of the remaining columns and uses the absolute prediction residual as anomaly evidence. Feature-wise residuals are aggregated into a row-level anomaly score, making the method relevant for conditional or relationship-breaking anomalies.",
+  "notes": "This repository is an extension and reimplementation of the earlier PSOD project by Thomas Mei\u00dfner. It does not claim invention of PSOD or the feature-as-target residual method. See PROVENANCE.md for attribution and licensing details."
+}
