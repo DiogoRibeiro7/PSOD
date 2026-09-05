@@ -2,16 +2,17 @@
 # ========================================================================
 
 [build-system]
-requires = ["setuptools>=65.0", "setuptools-scm>=8.0", "wheel"]
+requires = ["setuptools>=83.0", "setuptools-scm>=8.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "psod"
 dynamic = ["version"]
-description = "Pseudo-Supervised Outlier Detection using regression-based anomaly detection"
+description = "Pseudo-supervised outlier detection using feature-wise predictive residuals"
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = {text = "GPL-3.0-only"}
 authors = [
+    {name = "Thomas Meißner"},
     {name = "Diogo Ribeiro", email = "dfr@esmad.ipp.pt"}
 ]
 maintainers = [
@@ -26,12 +27,12 @@ keywords = [
     "scikit-learn"
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Information Analysis",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -129,8 +130,8 @@ all = [
 Homepage = "https://github.com/diogoribeiro7/PSOD"
 Documentation = "https://psod.readthedocs.io"
 Repository = "https://github.com/diogoribeiro7/PSOD"
+"Original PSOD" = "https://github.com/ThomasMeissnerDS/PSOD"
 "Bug Tracker" = "https://github.com/diogoribeiro7/PSOD/issues"
-Changelog = "https://github.com/diogoribeiro7/PSOD/blob/main/CHANGELOG.md"
 
 [project.scripts]
 psod = "psod.cli:main"
@@ -160,6 +161,7 @@ local_scheme = "no-local-version"
 line-length = 100
 target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
 include = '\.pyi?$'
+force-exclude = 'src/psod/_version\.py'
 extend-exclude = '''
 /(
   # directories
@@ -212,6 +214,7 @@ markers = [
 ]
 filterwarnings = [
     "error",
+    "ignore:The set_bad function will be deprecated in a future version.*:PendingDeprecationWarning",
     "ignore::UserWarning",
     "ignore::DeprecationWarning",
 ]
