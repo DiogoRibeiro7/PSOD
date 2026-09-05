@@ -161,6 +161,7 @@ local_scheme = "no-local-version"
 line-length = 100
 target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
 include = '\.pyi?$'
+force-exclude = 'src/psod/_version\.py'
 extend-exclude = '''
 /(
   # directories
@@ -213,6 +214,7 @@ markers = [
 ]
 filterwarnings = [
     "error",
+    "ignore:The set_bad function will be deprecated in a future version.*:PendingDeprecationWarning",
     "ignore::UserWarning",
     "ignore::DeprecationWarning",
 ]
