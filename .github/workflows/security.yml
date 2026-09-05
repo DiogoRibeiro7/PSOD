@@ -64,8 +64,20 @@ jobs:
           python -m pip install --upgrade "pip>=26.2" "setuptools>=83" wheel
           python -m pip install .
           python -m pip install pip-audit
-      - name: Audit installed project environment
+      - name: Generate machine-readable audit reports
+        run: |
+          pip-audit --desc --format json --output pip-audit-report.json || true
+          pip-audit --desc --format cyclonedx-json --output pip-audit-sbom.json || true
+      - name: Enforce dependency audit
         run: pip-audit --desc
+      - name: Upload pip-audit reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pip-audit-scan
+          path: |
+            pip-audit-report.json
+            pip-audit-sbom.json
 
   semgrep-scan:
     name: Semgrep Security Scan
@@ -86,14 +98,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Scan repository
+      - name: Generate Trivy SARIF
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: "0"
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+      - name: Enforce Trivy vulnerability policy
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
           scan-ref: .
           format: table
+          output: trivy-report.txt
           severity: CRITICAL,HIGH,MEDIUM
           exit-code: "1"
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: trivy-scan
+          path: |
+            trivy-results.sarif
+            trivy-report.txt
 
   secrets-scan:
     name: Secret Scanning
@@ -106,6 +141,20 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: TruffleHog OSS (PR)
+        if: github.event_name == 'pull_request'
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          extra_args: --only-verified
+      - name: TruffleHog OSS (push/schedule)
+        if: github.event_name != 'pull_request'
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          extra_args: --only-verified
 
   license-check:
     name: Dependency License Report
@@ -124,7 +173,7 @@ jobs:
         run: |
           pip-licenses --format=json --output-file=licenses.json
           pip-licenses --format=markdown --output-file=licenses.md
-      - name: Reject strongly copyleft network/server-side dependencies
+      - name: Reject incompatible network/server-side dependency licenses
         run: |
           python - <<'PY'
           import json
@@ -154,6 +203,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     needs:
+      - dependency-review
       - codeql-analysis
       - bandit-scan
       - pip-audit
@@ -164,6 +214,7 @@ jobs:
     steps:
       - name: Fail if a required scan failed
         env:
+          DEPENDENCY_REVIEW: ${{ needs.dependency-review.result }}
           CODEQL: ${{ needs.codeql-analysis.result }}
           BANDIT: ${{ needs.bandit-scan.result }}
           PIP_AUDIT: ${{ needs.pip-audit.result }}
@@ -173,6 +224,7 @@ jobs:
           LICENSES: ${{ needs.license-check.result }}
         run: |
           printf '%s\n' \
+            "Dependency review=$DEPENDENCY_REVIEW" \
             "CodeQL=$CODEQL" \
             "Bandit=$BANDIT" \
             "pip-audit=$PIP_AUDIT" \
@@ -180,6 +232,7 @@ jobs:
             "Trivy=$TRIVY" \
             "Secrets=$SECRETS" \
             "Licenses=$LICENSES"
+          test "$DEPENDENCY_REVIEW" = success || test "$DEPENDENCY_REVIEW" = skipped
           test "$CODEQL" = success
           test "$BANDIT" = success
           test "$PIP_AUDIT" = success

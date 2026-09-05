@@ -6,7 +6,7 @@ Pseudo-supervised outlier detection for tabular data using feature-wise predicti
 
 ## Method
 
-For each numerical feature \(X_j\), PSOD predicts that feature from a subset of the remaining columns and uses the prediction residual as anomaly evidence. Feature-wise residuals are then aggregated into a row-level anomaly score.
+For each numerical feature $X_j$, PSOD predicts that feature from a subset of the remaining columns and uses the prediction residual as anomaly evidence. Feature-wise residuals are then aggregated into a row-level anomaly score.
 
 Conceptually,
 
@@ -51,6 +51,8 @@ These capabilities are being reviewed individually during the refactor. Their pr
 ## Installation
 
 The package is **not currently being advertised for PyPI installation** while the refactor is in progress. The `psod` distribution name is already used by the original project.
+
+The supported Python baseline during this refactor is **Python 3.10–3.12**.
 
 For development from source:
 
