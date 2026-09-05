@@ -81,7 +81,7 @@ dev = [
     "safety>=2.3.0",
     "pip-audit>=2.5.0",
     # Build tools
-    "build>=0.10.0",
+    "build>=1.4.3",
     "twine>=4.0.0",
     "wheel>=0.40.0",
 ]
