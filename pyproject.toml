@@ -50,7 +50,7 @@ dependencies = [
     "category-encoders>=2.3.0",
     "tqdm>=4.67.3",
     "joblib>=1.1.0",
-    "matplotlib>=3.3.0",
+    "matplotlib>=3.9.4",
     "seaborn>=0.11.0",
     "plotly>=5.0.0",
     "bokeh>=3.0.0",
@@ -89,7 +89,7 @@ test = [
 ]
 
 viz = [
-    "matplotlib>=3.3.0",
+    "matplotlib>=3.9.4",
     "seaborn>=0.11.0",
     "plotly>=5.0.0",
     "bokeh>=3.0.0",
