@@ -23,6 +23,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import PowerTransformer, QuantileTransformer
 
+from ._input import convert_datetime_columns, to_dataframe, validate_input
+
 logger = logging.getLogger(__name__)
 
 
@@ -258,48 +260,11 @@ class PSOD(BaseEstimator):
 
     def _convert_datetime_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Convert datetime columns to numeric if enabled."""
-        if not self.auto_convert_datetime:
-            return df
-
-        datetime_cols = df.select_dtypes(include=["datetime64[ns]", "datetime64[ns, UTC]"]).columns
-        if len(datetime_cols) == 0:
-            return df
-
-        df_converted = df.copy()
-        for col in datetime_cols:
-            # Use astype to avoid pandas FutureWarning about Series.view
-            df_converted[col] = df_converted[col].astype("int64")
-
-        logger.info(f"Converted datetime columns to numeric: {list(datetime_cols)}")
-        return df_converted
+        return convert_datetime_columns(df, enabled=self.auto_convert_datetime)
 
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
-        """
-        Convert input to DataFrame if necessary (sklearn compatibility).
-
-        Parameters
-        ----------
-        X : pd.DataFrame or np.ndarray
-            Input data
-
-        Returns
-        -------
-        pd.DataFrame
-            Input converted to DataFrame
-        """
-        if isinstance(X, pd.DataFrame):
-            return X
-        elif isinstance(X, np.ndarray):
-            # Create DataFrame with default column names
-            n_features = X.shape[1] if X.ndim > 1 else 1
-            if self.feature_names_ is not None:
-                # Use stored feature names if available
-                columns = self.feature_names_
-            else:
-                columns = [f"feature_{i}" for i in range(n_features)]
-            return pd.DataFrame(X, columns=columns)
-        else:
-            raise TypeError(f"Expected DataFrame or ndarray, got {type(X)}")
+        """Convert input to DataFrame if necessary (sklearn compatibility)."""
+        return to_dataframe(X, feature_names=self.feature_names_)
 
     def __str__(self):
         """String representation of PSOD object."""
@@ -603,81 +568,15 @@ class PSOD(BaseEstimator):
         return var_data[var_data != 0].index.to_list()
 
     def _validate_input(self, df: pd.DataFrame, is_training: bool = True) -> None:
-        """
-        Validate input DataFrame.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            DataFrame to validate.
-        is_training : bool, default=True
-            Whether this is training (fit) or prediction mode.
-            Min samples check only applies to training.
-        """
-        # Check for empty DataFrame
-        if df.empty:
-            raise ValueError("Input DataFrame is empty")
-
-        # Check for duplicate column names
-        if df.columns.duplicated().any():
-            dupes = df.columns[df.columns.duplicated()].unique().tolist()
-            raise ValueError(f"Input DataFrame has duplicate column names: {dupes}")
-
-        # Check for minimum number of samples (only during training)
-        if is_training and len(df) < self.min_samples:
-            raise ValueError(
-                f"Input DataFrame has {len(df)} samples, "
-                f"but minimum required is {self.min_samples}"
-            )
-
-        # Check for infinite values in numeric columns (during prediction)
-        numeric_df = df.select_dtypes(include=[np.number])
-        if (not is_training) and (not numeric_df.empty) and np.isinf(numeric_df.to_numpy()).any():
-            raise ValueError(
-                "Input DataFrame contains infinite values. Replace or drop them before prediction."
-            )
-
-        # Check for missing values
-        if df.isnull().any().any():
-            logger.warning("Missing values detected. Consider imputation before fitting.")
-
-        # Check data types
-        if numeric_df.empty:
-            raise ValueError("No numeric columns found in DataFrame")
-
-        # Warn on non-numeric columns that will be ignored (unless specified as categorical)
-        if self.cat_columns:
-            cat_cols_set = set(self.cat_columns)
-        else:
-            cat_cols_set = set()
-        non_numeric_cols = [
-            col for col in df.columns if col not in numeric_df.columns and col not in cat_cols_set
-        ]
-        if non_numeric_cols:
-            logger.warning(
-                "Non-numeric columns will be ignored unless specified in cat_columns: "
-                f"{non_numeric_cols}"
-            )
-
-        # Validate categorical columns exist and are non-numeric
-        if self.cat_columns:
-            missing_cat_cols = set(self.cat_columns) - set(df.columns)
-            if missing_cat_cols:
-                raise ValueError(f"Categorical columns not found in DataFrame: {missing_cat_cols}")
-            numeric_cat_cols = [col for col in self.cat_columns if col in numeric_df.columns]
-            if numeric_cat_cols:
-                raise ValueError(
-                    "Categorical columns must be non-numeric. "
-                    f"Found numeric categorical columns: {numeric_cat_cols}"
-                )
-
-        # Check during prediction that features match training
-        if self._is_fitted and self.feature_names_:
-            missing_features = set(self.feature_names_) - set(df.columns)
-            if missing_features:
-                raise ValueError(f"Features missing from input: {missing_features}")
-
-        logger.debug(f"Input validation passed. DataFrame shape: {df.shape}")
+        """Validate input DataFrame against the estimator's current fit state."""
+        validate_input(
+            df,
+            is_training=is_training,
+            min_samples=self.min_samples,
+            cat_columns=self.cat_columns,
+            is_fitted=self._is_fitted,
+            feature_names=self.feature_names_,
+        )
 
     def _handle_missing_values(self, df: pd.DataFrame, is_training: bool = True) -> pd.DataFrame:
         """
