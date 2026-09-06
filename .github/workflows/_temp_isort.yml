@@ -1,0 +1,32 @@
+name: Temporary Isort Fix
+
+on:
+  push:
+    branches:
+      - refactor/03c-input-boundary
+
+permissions:
+  contents: write
+
+jobs:
+  isort:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refactor/03c-input-boundary
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python -m pip install isort==9.0.1
+      - run: isort src/psod/core.py
+      - name: Commit import ordering
+        run: |
+          if git diff --quiet -- src/psod/core.py; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/psod/core.py
+          git commit -m "style: sort input boundary imports"
+          git push origin HEAD:refactor/03c-input-boundary
