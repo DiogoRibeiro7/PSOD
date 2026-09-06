@@ -6,21 +6,27 @@ This document describes the workflows that are currently active in the PSOD repo
 
 `.github/workflows/ci.yml` runs on pushes and pull requests targeting `main` or `develop`.
 
-The current required baseline covers:
+The current **gating baseline** covers:
 
-- Python 3.10, 3.11, and 3.12 on Ubuntu;
+- Python 3.10, 3.11, and 3.12 tests on Ubuntu;
 - Black formatting;
 - isort import ordering;
 - flake8 syntax and undefined-name checks;
-- pylint, mypy, and Bandit diagnostics;
 - unit and integration tests;
-- example execution;
 - package build and `twine check`;
-- wheel installation smoke tests;
-- coverage artifact generation;
-- dependency auditing.
+- wheel installation smoke tests.
 
-The supported Python floor is therefore Python 3.10 during this refactor. Older classifiers or setup instructions should not be treated as supported unless they are restored to the CI matrix in a later change.
+The workflow also runs **advisory diagnostics** that currently use `continue-on-error` and therefore do not by themselves fail CI:
+
+- pylint;
+- mypy;
+- the CI-local Bandit diagnostic;
+- the CI-local dependency-audit diagnostic;
+- some example-execution checks.
+
+These advisory steps are technical debt to be made strict or removed during the tooling cleanup. A green CI run must not be described as proving that an advisory diagnostic passed when GitHub recorded it as non-gating.
+
+The supported Python floor is Python 3.10 during this refactor.
 
 ## Security workflow
 
@@ -33,20 +39,20 @@ It currently includes:
 - Bandit;
 - `pip-audit` with JSON and CycloneDX JSON reports;
 - Semgrep;
-- Trivy, including SARIF upload and a human-readable report;
+- Trivy with an enforced vulnerability scan plus SARIF where repository permissions allow upload;
 - Gitleaks and TruffleHog secret scanning;
 - dependency license reporting;
 - an aggregate security gate that fails when a required scan fails.
 
-Because this repository is now treated as GPL-3.0-only, GPL-3.0 dependencies are not rejected merely for being GPL-3.0. The explicit denied dependency-license policy is currently limited to AGPL-3.0 and SSPL-family licenses.
+Fork pull requests still run the Trivy vulnerability policy, but SARIF upload is skipped when the token cannot write security events.
 
-Security artifacts include machine-readable audit output, Trivy SARIF, the Trivy text report, and dependency-license reports where those jobs execute.
+Because this repository is treated as GPL-3.0-only, GPL-3.0 dependencies are not rejected merely for being GPL-3.0. The explicit denied dependency-license policy is currently limited to AGPL-3.0 and SSPL-family licenses.
 
 ## Documentation, performance, and release workflows
 
-The repository also contains `docs.yml`, `performance.yml`, and `release.yml`. These files are being audited separately during the repository cleanup. Their presence does not imply that documentation deployment, benchmark publication, or PyPI publication is currently release-ready.
+The repository also contains `docs.yml`, `performance.yml`, and `release.yml`. These are being audited separately during the repository cleanup.
 
-In particular, the `psod` distribution name is already occupied by the earlier PSOD project, so no release workflow should be interpreted as authorization to publish this refactor under that name.
+The release workflow currently **builds and tests artifacts only**. PyPI publication is intentionally disabled because the `psod` distribution name is already used by the earlier PSOD project. A new distribution identity must be selected and reviewed before publication can be enabled.
 
 ## Local verification
 
@@ -68,4 +74,4 @@ pip-audit --desc
 
 ## Refactor policy
 
-CI is treated as a scientific and engineering gate, not decoration. A green workflow means the checks that actually ran passed; it must not be achieved by silently dropping artifacts, omitting failed jobs from aggregate status, or weakening the documented contract without an explicit repository change.
+CI is treated as a scientific and engineering gate, not decoration. Repository documentation must distinguish checks that can fail a workflow from diagnostics that are currently advisory. Security artifacts or required jobs must not be silently dropped merely to obtain a green status.
