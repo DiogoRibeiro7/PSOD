@@ -1057,8 +1057,7 @@ class PSOD(BaseEstimator):
             # Use parallel processing
             n_jobs_to_use = self.n_jobs if self.n_jobs > 0 else -1
             results = Parallel(n_jobs=n_jobs_to_use, backend="threading")(
-                delayed(fit_single_regressor)((enum, col))
-                for enum, col in enumerate(loop_cols)
+                delayed(fit_single_regressor)((enum, col)) for enum, col in enumerate(loop_cols)
             )
 
         # Process results
