@@ -6,9 +6,13 @@ This directory contains the source files for PSOD documentation built with Sphin
 
 ### Prerequisites
 
+Install the project with the documentation extra from the repository root:
+
 ```bash
-pip install -r requirements.txt
+python -m pip install -e ".[docs]"
 ```
+
+The `docs` extra is the authoritative documentation dependency set. It includes the Sphinx theme and extensions used by `docs/conf.py`, plus a bundled Pandoc binary for notebook conversion.
 
 ### Build HTML Documentation
 
@@ -49,97 +53,26 @@ docs/
 
 ## Contributing to Documentation
 
-1. Edit RST files in the appropriate directory
-2. Build locally to preview changes: `make html`
-3. Check for broken links: `make linkcheck`
-4. Submit a pull request
-
-## Writing Documentation
-
-### RST Syntax
-
-- Use `**bold**` for **bold text**
-- Use `` `code` `` for `inline code`
-- Use `.. code-block:: python` for code blocks
-- Use `.. note::` for note admonitions
-
-### Adding Examples
-
-1. Create a Python script in `../examples/` with `plot_` prefix
-2. The script will automatically appear in the gallery
-3. Use docstrings to describe the example
-
-### API Documentation
-
-API documentation is automatically generated from docstrings. Use NumPy or Google style:
-
-```python
-def my_function(param1, param2):
-    """
-    Short description.
-
-    Longer description if needed.
-
-    Parameters
-    ----------
-    param1 : type
-        Description of param1
-    param2 : type
-        Description of param2
-
-    Returns
-    -------
-    type
-        Description of return value
-
-    Examples
-    --------
-    >>> my_function(1, 2)
-    3
-    """
-    return param1 + param2
-```
+1. Edit RST files in the appropriate directory.
+2. Build locally with `make html`.
+3. Check links with `make linkcheck`.
+4. Submit a pull request.
 
 ## Automated Builds
 
-Documentation is automatically built and deployed:
-
-- **GitHub Actions**: Builds on every push
-- **Read the Docs**: Available at https://psod.readthedocs.io (when configured)
-- **GitHub Pages**: Available at https://diogoribeiro7.github.io/PSOD/ (when configured)
+Documentation is built by GitHub Actions and can also be built by Read the Docs. During the repository refactor, documentation publication should be treated as provisional until the documentation workflow itself is fully audited.
 
 ## Troubleshooting
 
-### Build Errors
-
-If you encounter build errors, try:
+If a local build fails, reinstall the docs extra and rebuild from a clean directory:
 
 ```bash
+python -m pip install -e ".[docs]" --upgrade
 make clean
 make html
 ```
 
-### Missing Dependencies
-
-```bash
-pip install -r requirements.txt --upgrade
-```
-
-### Pandoc Missing Error
-
-If you see `PandocMissing` error, Pandoc is required for Jupyter notebook conversion. The `pypandoc` package (included in `requirements.txt`) bundles Pandoc automatically. If issues persist, install Pandoc manually:
-
-- **Windows**: `winget install --source winget --exact --id JohnMacFarlane.Pandoc`
-- **macOS**: `brew install pandoc`
-- **Linux**: `sudo apt-get install pandoc` or `sudo yum install pandoc`
-
-### Broken Links
-
-Check for broken links:
-
-```bash
-make linkcheck
-```
+If notebook conversion reports `PandocMissing`, verify that the environment was installed from the current `docs` extra. It uses `pypandoc-binary`, which supplies a bundled Pandoc binary. A system Pandoc installation is therefore optional rather than required for the standard development setup.
 
 ## Resources
 
@@ -147,4 +80,3 @@ make linkcheck
 - [reStructuredText Primer](https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html)
 - [PyData Sphinx Theme](https://pydata-sphinx-theme.readthedocs.io/)
 - [NumPy Docstring Guide](https://numpydoc.readthedocs.io/en/latest/format.html)
-
