@@ -58,13 +58,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    # Testing
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-xdist>=3.0.0",
     "pytest-timeout>=2.1.0",
     "pytest-mock>=3.10.0",
-    # Code quality
     "black>=23.0.0",
     "isort>=5.12.0",
     "flake8>=6.0.0",
@@ -72,13 +70,10 @@ dev = [
     "flake8-comprehensions>=3.12.0",
     "pylint>=2.17.0",
     "mypy>=1.4.0",
-    # Pre-commit
     "pre-commit>=3.3.0",
-    # Security
     "bandit[toml]>=1.7.5",
     "safety>=2.3.0",
     "pip-audit>=2.5.0",
-    # Build tools
     "build>=0.10.0",
     "twine>=4.0.0",
     "wheel>=0.40.0",
@@ -103,12 +98,16 @@ viz = [
 docs = [
     "sphinx>=6.0.0",
     "sphinx-rtd-theme>=3.1.0",
+    "pydata-sphinx-theme>=0.8.0",
     "sphinx-autodoc-typehints>=1.23.0",
     "sphinxcontrib-napoleon>=0.7",
     "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.1.0",
+    "sphinx-gallery>=0.10.0",
     "myst-parser>=1.0.0",
     "nbsphinx>=0.9.2",
     "pandoc>=2.4",
+    "pypandoc>=1.7.0",
     "ipykernel>=6.23.0",
     "interrogate>=1.5.0",
 ]
@@ -134,10 +133,6 @@ Repository = "https://github.com/diogoribeiro7/PSOD"
 [project.scripts]
 psod = "psod.cli:main"
 
-# ========================================================================
-# Tool Configurations
-# ========================================================================
-
 [tool.setuptools]
 packages = ["psod"]
 package-dir = {"" = "src"}
@@ -152,33 +147,14 @@ version_scheme = "post-release"
 local_scheme = "no-local-version"
 fallback_version = "0.0.0"
 
-# ========================================================================
-# Black Configuration
-# ========================================================================
-
 [tool.black]
 line-length = 100
 target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 force-exclude = 'src/psod/_version\.py'
 extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-  | docs/_build
-)/
+/(\.eggs|\.git|\.hg|\.mypy_cache|\.tox|\.venv|build|dist|docs/_build)/
 '''
-
-# ========================================================================
-# isort Configuration
-# ========================================================================
 
 [tool.isort]
 profile = "black"
@@ -190,22 +166,13 @@ use_parentheses = true
 ensure_newline_before_comments = true
 skip_glob = ["docs/*", "build/*", "dist/*"]
 
-# ========================================================================
-# Pytest Configuration
-# ========================================================================
-
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = [
-    "-ra",
-    "--strict-markers",
-    "--strict-config",
-    "--showlocals",
-]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--showlocals"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
@@ -222,13 +189,7 @@ filterwarnings = [
 source = ["src/psod"]
 branch = true
 parallel = true
-omit = [
-    "*/tests/*",
-    "*/test_*.py",
-    "*/__pycache__/*",
-    "*/site-packages/*",
-    "*/_version.py",
-]
+omit = ["*/tests/*", "*/test_*.py", "*/__pycache__/*", "*/site-packages/*", "*/_version.py"]
 
 [tool.coverage.report]
 precision = 2
@@ -248,10 +209,6 @@ exclude_lines = [
 [tool.coverage.html]
 directory = "htmlcov"
 
-# ========================================================================
-# Mypy Configuration
-# ========================================================================
-
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
@@ -269,37 +226,16 @@ strict_equality = true
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = [
-    "sklearn.*",
-    "category_encoders.*",
-    "matplotlib.*",
-    "seaborn.*",
-    "plotly.*",
-]
+module = ["sklearn.*", "category_encoders.*", "matplotlib.*", "seaborn.*", "plotly.*"]
 ignore_missing_imports = true
-
-# ========================================================================
-# Pylint Configuration
-# ========================================================================
 
 [tool.pylint.main]
 py-version = "3.10"
 jobs = 0
-load-plugins = [
-    "pylint.extensions.docparams",
-    "pylint.extensions.docstyle",
-]
+load-plugins = ["pylint.extensions.docparams", "pylint.extensions.docstyle"]
 
 [tool.pylint.messages_control]
-disable = [
-    "C0114",  # missing-module-docstring
-    "C0115",  # missing-class-docstring
-    "C0116",  # missing-function-docstring
-    "R0913",  # too-many-arguments
-    "R0914",  # too-many-locals
-    "W0212",  # protected-access
-    "C0103",  # invalid-name
-]
+disable = ["C0114", "C0115", "C0116", "R0913", "R0914", "W0212", "C0103"]
 
 [tool.pylint.format]
 max-line-length = 100
@@ -312,10 +248,6 @@ max-locals = 20
 max-returns = 8
 max-statements = 60
 
-# ========================================================================
-# Bandit Configuration
-# ========================================================================
-
 [tool.bandit]
 targets = ["src/psod"]
 exclude_dirs = ["tests", "docs", "build", "dist"]
@@ -325,37 +257,14 @@ severity = "medium"
 [tool.bandit.assert_used]
 skips = ["*/test_*.py", "*/tests/*"]
 
-# ========================================================================
-# Ruff Configuration (Alternative linter)
-# ========================================================================
-
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-]
-ignore = [
-    "E501",  # line too long (handled by black)
-    "B008",  # do not perform function calls in argument defaults
-    "C901",  # too complex
-]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+ignore = ["E501", "B008", "C901"]
 exclude = [
-    ".git",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".venv",
-    "__pypackages__",
-    "build",
-    "dist",
-    "docs/_build",
+    ".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv",
+    "__pypackages__", "build", "dist", "docs/_build",
 ]
 
 [tool.ruff.per-file-ignores]
@@ -364,10 +273,6 @@ exclude = [
 
 [tool.ruff.isort]
 known-first-party = ["psod"]
-
-# ========================================================================
-# Interrogate Configuration (Docstring Coverage)
-# ========================================================================
 
 [tool.interrogate]
 ignore-init-method = true
