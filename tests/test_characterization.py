@@ -42,7 +42,9 @@ def test_serial_and_parallel_fit_are_equivalent() -> None:
     parallel_scores = parallel.fit_predict(frame)
 
     assert serial_scores.index.equals(parallel_scores.index)
-    np.testing.assert_allclose(serial_scores.to_numpy(), parallel_scores.to_numpy(), rtol=0, atol=1e-12)
+    np.testing.assert_allclose(
+        serial_scores.to_numpy(), parallel_scores.to_numpy(), rtol=0, atol=1e-12
+    )
     assert serial.chosen_columns == parallel.chosen_columns
     assert serial.prediction_errors_ is not None
     assert parallel.prediction_errors_ is not None
@@ -60,9 +62,7 @@ def test_refit_replaces_fit_state_instead_of_accumulating_it() -> None:
     """Reusing an estimator must not retain regressors or metadata from the old fit."""
     detector = _detector(n_jobs=1)
     first = _numeric_frame()
-    second = first.loc[:, ["a", "b", "c"]].rename(
-        columns={"a": "x", "b": "y", "c": "z"}
-    )
+    second = first.loc[:, ["a", "b", "c"]].rename(columns={"a": "x", "b": "y", "c": "z"})
 
     detector.fit_predict(first)
     detector.fit_predict(second)
