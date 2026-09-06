@@ -22,7 +22,6 @@ from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import PowerTransformer, QuantileTransformer
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -1052,18 +1051,13 @@ class PSOD(BaseEstimator):
         # Process regressors (use single thread if n_jobs=1, otherwise parallel)
         if self.n_jobs == 1:
             results = []
-            for enum, col in tqdm(
-                enumerate(loop_cols), total=len(loop_cols), desc="Fitting models"
-            ):
+            for enum, col in enumerate(loop_cols):
                 results.append(fit_single_regressor((enum, col)))
         else:
             # Use parallel processing
             n_jobs_to_use = self.n_jobs if self.n_jobs > 0 else -1
             results = Parallel(n_jobs=n_jobs_to_use, backend="threading")(
-                delayed(fit_single_regressor)((enum, col))
-                for enum, col in tqdm(
-                    enumerate(loop_cols), total=len(loop_cols), desc="Fitting models"
-                )
+                delayed(fit_single_regressor)((enum, col)) for enum, col in enumerate(loop_cols)
             )
 
         # Process results
@@ -1175,7 +1169,7 @@ class PSOD(BaseEstimator):
         )
         df[loop_cols] = self.transform_numeric_data(df[loop_cols])
 
-        for enum, col in tqdm(enumerate(loop_cols), desc="Making predictions"):
+        for enum, col in enumerate(loop_cols):
             try:
                 temp_df = df.copy()
                 chosen_cat_cols = (
