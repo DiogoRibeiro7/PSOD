@@ -1,18 +1,21 @@
 SPDX-License-Identifier: GPL-3.0-only
 
-PSOD
+PSOD — Pseudo-Supervised Outlier Detection
 
 This repository is distributed under the GNU General Public License,
 version 3 only (GPL-3.0-only).
 
 The project is based on the earlier PSOD implementation by Thomas Meißner,
 which declares GPL-3.0-only in its package metadata. The provenance and
-attribution policy for this refactor is documented in PROVENANCE.md.
+authorship record for this refactor is documented in PROVENANCE.md and in
+the repository history. This notice does not invent or reassign copyright
+ownership.
 
-A verbatim copy of the GNU GPL version 3 is available from the Free Software
+The GNU General Public License version 3 is published by the Free Software
 Foundation at:
 
 https://www.gnu.org/licenses/gpl-3.0.txt
 
-Copyright notices and authorship attribution are not replaced by this license
-statement. See PROVENANCE.md and the repository history for origin details.
+Redistribution of this project must comply with GPL-3.0-only, including the
+license-copy and source-availability obligations that apply when covered
+work is conveyed.
