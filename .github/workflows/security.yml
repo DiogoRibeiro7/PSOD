@@ -108,7 +108,10 @@ jobs:
           severity: CRITICAL,HIGH,MEDIUM
           exit-code: "0"
       - name: Upload Trivy SARIF
-        if: always() && hashFiles('trivy-results.sarif') != ''
+        if: >-
+          always() &&
+          hashFiles('trivy-results.sarif') != '' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
@@ -142,16 +145,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: TruffleHog OSS (PR)
-        if: github.event_name == 'pull_request'
-        uses: trufflesecurity/trufflehog@main
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        uses: trufflesecurity/trufflehog@30a032af512f08a1d4e7d1aaf0d4119ad6910d63
         with:
           path: ./
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
           extra_args: --only-verified
       - name: TruffleHog OSS (push/schedule)
-        if: github.event_name != 'pull_request'
-        uses: trufflesecurity/trufflehog@main
+        if: ${{ always() && github.event_name != 'pull_request' }}
+        uses: trufflesecurity/trufflehog@30a032af512f08a1d4e7d1aaf0d4119ad6910d63
         with:
           path: ./
           extra_args: --only-verified
