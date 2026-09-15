@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "project_type": "package",
+  "strategic_themes": [
+    "scientific-software",
+    "statistical-methodology",
+    "professional-technical-portfolio"
+  ],
+  "planning": {
+    "horizon": "now",
+    "wip": true
+  },
+  "milestone": {
+    "id": "M01",
+    "title": "Complete the behavior-preserving PSOD module split",
+    "status": "wip",
+    "acceptance": [
+      {
+        "id": "A1",
+        "text": "Extract stateful missing-value handling without changing fitted-imputer behavior",
+        "done": true
+      },
+      {
+        "id": "A2",
+        "text": "Extract numeric transformation and feature-filtering concerns from the estimator facade",
+        "done": false
+      },
+      {
+        "id": "A3",
+        "text": "Isolate per-feature model fitting and prediction-error calculation behind internal boundaries",
+        "done": false
+      },
+      {
+        "id": "A4",
+        "text": "Reduce remaining core coupling in persistence and explanation utilities while preserving the public estimator facade and characterization tests",
+        "done": false
+      }
+    ]
+  },
+  "dependencies": [],
+  "outcomes": [
+    {
+      "id": "O1",
+      "type": "reusable_asset",
+      "status": "in_progress",
+      "target": "Behavior-preserving modular PSOD baseline ready for leakage-controlled scoring redesign"
+    }
+  ]
+}
