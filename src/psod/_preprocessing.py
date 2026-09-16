@@ -17,12 +17,13 @@ def fit_transform_numeric_data(
     *,
     algorithm: str | None,
     random_seed: int,
+    existing_encoder: NumericEncoder | None,
 ) -> tuple[pd.DataFrame, NumericEncoder | None]:
     """Fit the configured numeric transform and return transformed data and state."""
     if algorithm == "logarithmic":
         df_min = df.min().min()
         offset = abs(df_min) + 1 if df_min <= 0 else 0
-        return np.log1p(df + offset), None
+        return np.log1p(df + offset), existing_encoder
 
     if algorithm == "yeo-johnson":
         encoder = PowerTransformer(method="yeo-johnson")
@@ -44,7 +45,7 @@ def fit_transform_numeric_data(
         return pd.DataFrame(transformed, columns=df.columns, index=df.index), encoder
 
     if algorithm in ["none", None]:
-        return df, None
+        return df, existing_encoder
 
     raise ValueError(f"Unknown transformation algorithm: {algorithm}")
 
