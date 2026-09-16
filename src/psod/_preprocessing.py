@@ -17,7 +17,7 @@ def fit_transform_numeric_data(
     *,
     algorithm: str | None,
     random_seed: int,
-    existing_encoder: NumericEncoder | None,
+    existing_encoder: NumericEncoder | None = None,
 ) -> tuple[pd.DataFrame, NumericEncoder | None]:
     """Fit the configured numeric transform and return transformed data and state."""
     if algorithm == "logarithmic":
