@@ -23,7 +23,7 @@ def fit_transform_numeric_data(
     if algorithm == "logarithmic":
         df_min = df.min().min()
         offset = abs(df_min) + 1 if df_min <= 0 else 0
-        return np.log1p(df + offset), existing_encoder
+        return np.log1p(df + offset), existing_encoder  # type: ignore[no-any-return]
 
     if algorithm == "yeo-johnson":
         encoder = PowerTransformer(method="yeo-johnson")
@@ -62,7 +62,7 @@ def transform_numeric_data(
         # from the frame being transformed rather than stored during fitting.
         df_min = df.min().min()
         offset = abs(df_min) + 1 if df_min <= 0 else 0
-        return np.log1p(df + offset)
+        return np.log1p(df + offset)  # type: ignore[no-any-return]
 
     if algorithm in ["yeo-johnson", "box-cox", "quantile"] and encoder is not None:
         transformed = encoder.transform(df)
@@ -94,4 +94,4 @@ def correlation_feature_selection(
 
 def intersect_columns(left: list[str], right: list[str]) -> list[str]:
     """Return the sorted unique intersection used by the legacy estimator."""
-    return np.intersect1d(left, right).tolist()
+    return np.intersect1d(left, right).tolist()  # type: ignore[no-any-return]
