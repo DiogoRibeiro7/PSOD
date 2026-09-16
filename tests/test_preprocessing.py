@@ -90,7 +90,5 @@ def test_feature_filter_helpers_preserve_legacy_semantics() -> None:
         "strong",
     ]
     correlation_frame = frame.drop(columns=["constant"])
-    assert correlation_feature_selection(correlation_frame, "target", threshold=0.9) == [
-        "strong"
-    ]
+    assert correlation_feature_selection(correlation_frame, "target", threshold=0.9) == ["strong"]
     assert intersect_columns(["z", "b", "b", "a"], ["b", "a", "q"]) == ["a", "b"]
