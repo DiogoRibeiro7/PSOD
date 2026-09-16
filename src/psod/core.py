@@ -20,10 +20,17 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import PowerTransformer, QuantileTransformer
 
 from ._imputation import Imputer, handle_missing_values
 from ._input import convert_datetime_columns, to_dataframe, validate_input
+from ._preprocessing import (
+    NumericEncoder,
+    correlation_feature_selection,
+    fit_transform_numeric_data,
+    intersect_columns,
+    remove_zero_variance,
+    transform_numeric_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +121,7 @@ class PSOD(BaseEstimator):
     ):
         self.cat_columns = cat_columns
         self.cat_encoders: Dict[str, BaseNEncoder] = {}
-        self.numeric_encoders: Union[PowerTransformer, QuantileTransformer, None] = None
+        self.numeric_encoders: Optional[NumericEncoder] = None
         self.regressors: Dict[str, RegressorMixin] = {}
         self.n_jobs = n_jobs
         self.scores: Union[pd.Series, None] = None
@@ -391,12 +398,11 @@ class PSOD(BaseEstimator):
         List[str]
             List of columns with correlation above threshold.
         """
-        numerical_cols = df.select_dtypes(include=[np.number]).columns
-        return [
-            col
-            for col in numerical_cols
-            if col != target_col and abs(df[col].corr(df[target_col])) > self.correlation_threshold
-        ]
+        return correlation_feature_selection(
+            df,
+            target_col,
+            threshold=self.correlation_threshold,
+        )
 
     def col_intersection(self, lst1: List[str], lst2: List[str]) -> List[str]:
         """
@@ -414,7 +420,7 @@ class PSOD(BaseEstimator):
         List[str]
             List of intersecting elements.
         """
-        return np.intersect1d(lst1, lst2).tolist()  # type: ignore[no-any-return]
+        return intersect_columns(lst1, lst2)
 
     def make_outlier_classes(self, df_scores: pd.DataFrame, use_trained_stats=True) -> pd.Series:
         """Convert outlier scores to binary labels."""
@@ -479,42 +485,12 @@ class PSOD(BaseEstimator):
         pd.DataFrame
             Transformed DataFrame.
         """
-        if self.transform_algorithm == "logarithmic":
-            # Handle negative values by adding offset
-            df_min = df.min().min()
-            offset = abs(df_min) + 1 if df_min <= 0 else 0
-            return np.log1p(df + offset)  # type: ignore[no-any-return]
-
-        elif self.transform_algorithm == "yeo-johnson":
-            scaler = PowerTransformer(method="yeo-johnson")
-            df_transformed = scaler.fit_transform(df)
-            self.numeric_encoders = scaler
-            return pd.DataFrame(df_transformed, columns=df.columns, index=df.index)
-
-        elif self.transform_algorithm == "box-cox":
-            # Box-Cox requires positive values
-            df_min = df.min().min()
-            if df_min <= 0:
-                warnings.warn("Box-Cox transformation requires positive values. Adding offset.")
-                df = df - df_min + 1
-            scaler = PowerTransformer(method="box-cox")
-            df_transformed = scaler.fit_transform(df)
-            self.numeric_encoders = scaler
-            return pd.DataFrame(df_transformed, columns=df.columns, index=df.index)
-
-        elif self.transform_algorithm == "quantile":
-            scaler = QuantileTransformer(
-                output_distribution="normal", random_state=self.random_seed
-            )
-            df_transformed = scaler.fit_transform(df)
-            self.numeric_encoders = scaler
-            return pd.DataFrame(df_transformed, columns=df.columns, index=df.index)
-
-        elif self.transform_algorithm in ["none", None]:
-            return df
-
-        else:
-            raise ValueError(f"Unknown transformation algorithm: {self.transform_algorithm}")
+        transformed, self.numeric_encoders = fit_transform_numeric_data(
+            df,
+            algorithm=self.transform_algorithm,
+            random_seed=self.random_seed,
+        )
+        return transformed
 
     def transform_numeric_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -530,24 +506,11 @@ class PSOD(BaseEstimator):
         pd.DataFrame
             Transformed DataFrame.
         """
-        if self.transform_algorithm == "logarithmic":
-            # Use same offset as in fitting
-            df_min = df.min().min()
-            offset = abs(df_min) + 1 if df_min <= 0 else 0
-            return np.log1p(df + offset)  # type: ignore[no-any-return]
-
-        elif (
-            self.transform_algorithm in ["yeo-johnson", "box-cox", "quantile"]
-            and self.numeric_encoders
-        ):
-            df_transformed = self.numeric_encoders.transform(df)
-            return pd.DataFrame(df_transformed, columns=df.columns, index=df.index)
-
-        elif self.transform_algorithm in ["none", None]:
-            return df
-
-        else:
-            return df
+        return transform_numeric_data(
+            df,
+            algorithm=self.transform_algorithm,
+            encoder=self.numeric_encoders,
+        )
 
     def remove_zero_variance(self, df: pd.DataFrame) -> List[str]:
         """
@@ -563,9 +526,7 @@ class PSOD(BaseEstimator):
         List[str]
             List of columns with non-zero variance.
         """
-        # Use ddof=0 to avoid warnings for single-sample inputs
-        var_data = df.var(ddof=0)
-        return var_data[var_data != 0].index.to_list()
+        return remove_zero_variance(df)
 
     def _validate_input(self, df: pd.DataFrame, is_training: bool = True) -> None:
         """Validate input DataFrame against the estimator's current fit state."""
