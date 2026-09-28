@@ -102,7 +102,7 @@ docs = [
     "nbsphinx>=0.9.2",
     "pypandoc-binary>=1.7.0",
     "ipykernel>=6.23.0",
-    "interrogate>=1.5.0",
+    "interrogate>=1.7.0",
 ]
 
 benchmark = [
